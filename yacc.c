@@ -80,9 +80,10 @@ TokenStream *tokenize(char *p) {
         switch (*p) {
             case '+':
             case '-':
-            // Disable multiplication and division until we incorporate order of operations
-            // case '/':
-            // case '*':
+            case '/':
+            case '*':
+            case ')':
+            case '(':
                 tokens[i].ty = *p;
                 tokens[i].input = p;
                 i++;
@@ -109,6 +110,7 @@ Node *parse_expression_tree(TokenStream *token_stream) {
     int old_pos = *(token_stream->pos);
     Node *node = expr(token_stream);
     *(token_stream->pos) = old_pos;
+    return node;
 }
 
 // Create an expression tree from a stream of tokens
@@ -119,6 +121,7 @@ Node *expr(TokenStream *token_stream) {
     Node *lhs = mul(token_stream);
     switch (tokens[*pos].ty) {
         case TK_EOF:
+        case ')':
             return lhs;
         case '+':
             *pos = *pos + 1;
@@ -140,6 +143,7 @@ Node *mul(TokenStream *token_stream) {
         case TK_EOF:
         case '+':
         case '-':
+        case ')':
             return lhs;
         case '*':
             *pos = *pos + 1;
@@ -152,6 +156,7 @@ Node *mul(TokenStream *token_stream) {
     }
 }
 
+// A term can either be a number, or an entire expression wrapped in parentheses
 Node *term(TokenStream *token_stream) {
     Token *tokens = token_stream->tokens;
     int *pos = token_stream->pos;
@@ -171,6 +176,45 @@ Node *term(TokenStream *token_stream) {
         default:
             fprintf(stderr, "Unexpected token in term: %s (%i) (%d)\n", tokens[*pos].input, tokens[*pos].ty, *pos);
     }
+}
+
+// Compiling an expression tree to assembly uses a recursive approach:
+//      1. If our node is a number (leaf), just push it to the stack.
+//      2. If our node is an operation, compile the left hand side, 
+//      then the right hand side, then pop both and perform the operation, \
+//      and finally return the result to the stack.
+void compile_expression_tree(Node *expression_tree) {
+    switch(expression_tree->ty) {
+        // Base case: numbers
+        case ND_NUM:
+            printf("\tpush %d\n", expression_tree->val);
+            break;
+        // Recursive case: operations
+        default:
+            compile_expression_tree(expression_tree->lhs);
+            compile_expression_tree(expression_tree->rhs);
+            printf("\tpop rdi\n");
+            printf("\tpop rax\n");
+            switch(expression_tree->ty) {
+                case '*':
+                    printf("\tmul rdi\n");
+                    break;
+                case '/':
+                    printf("\tmov rdx, 0\n");
+                    printf("\tdiv rdi\n");
+                    break;
+                case '+':
+                    printf("\tadd rax, rdi\n");
+                    break;
+                case '-':
+                    printf("\tsub rax, rdi\n");
+                    break;
+                default:
+                    fprintf(stderr, "Unknown operator %c (%d)\n", expression_tree->ty, expression_tree->ty);
+                    exit(1);
+            }
+            printf("\tpush rax\n");
+    }   
 }
 
 void error(Token token) {
@@ -196,36 +240,9 @@ int main(int argc, char **argv) {
     printf(".global main\n");
     printf("main:\n");
     
-    if (tokens[0].ty != TK_NUM) {
-        error(tokens[0]);
-    }
-    // Load our first token into the register
-    printf("\tmov rax, %d\n", tokens[0].val);
-
-    int i = 1;
-    while (tokens[i].ty != TK_EOF) {
-        if (tokens[i].ty == '+') {
-            i++;
-            if (tokens[i].ty != TK_NUM) {
-                error(tokens[i]);
-            }
-            printf("\tadd rax, %d\n", tokens[i].val);
-            i++;
-            continue;
-        }
-
-        if (tokens[i].ty == '-') {
-            i++;
-            if (tokens[i].ty != TK_NUM) {
-                error(tokens[i]);
-            }
-            printf("\tsub rax, %d\n", tokens[i].val);
-            i++;
-            continue;
-        }
-
-        error(tokens[i]);
-    }
+    compile_expression_tree(expression_tree);
+    // Technically the value should already be in rax, but we should clear the stack anyway.
+    printf("\tpop rax\n");
 
     printf("\tret\n");
     return 0;
