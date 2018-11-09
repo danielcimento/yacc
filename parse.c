@@ -9,7 +9,7 @@ Node *unexpected_token(Token token, char *hint) {
     if(hint != NULL) {
         fprintf(stderr, "Hint: %s\n", hint);
     }
-    exit(1);
+    exit(PARSE_ERROR);
     return NULL;
 }
 

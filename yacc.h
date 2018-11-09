@@ -4,6 +4,12 @@
 #include <string.h>
 
 enum {
+    TOKENIZE_ERROR = 1,
+    PARSE_ERROR = 2,
+    CODEGEN_ERROR = 3,
+};
+
+enum {
     TK_NUM = 256,   // Integer tokens
     TK_IDENT,       // Identifier tokens
     TK_EOF,         // End of input token

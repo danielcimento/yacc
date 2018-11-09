@@ -58,7 +58,7 @@ void gen(Node *statement_tree) {
                     break;
                 default:
                     fprintf(stderr, "Unknown operator %c (%d)\n", statement_tree->ty, statement_tree->ty);
-                    exit(1);
+                    exit(CODEGEN_ERROR);
             }
             printf("\tpush rax\n");
     }   

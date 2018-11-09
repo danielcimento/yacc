@@ -51,8 +51,8 @@ TokenStream *tokenize(char *p) {
                 p++;
                 continue;
             default:
-                fprintf(stderr, "Cannot tokenize: %s\n", p);
-                exit(1);
+                fprintf(stderr, "Cannot tokenize: %s (Code Point: %d)\n", p, *p);
+                exit(TOKENIZE_ERROR);
         }
     }
 
