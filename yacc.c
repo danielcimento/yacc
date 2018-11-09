@@ -10,6 +10,7 @@
 // Tokenizer:
 enum {
     TK_NUM = 256,   // Integer tokens
+    TK_IDENT,       // Identifier tokens
     TK_EOF,         // End of input token
 };
 
@@ -27,11 +28,13 @@ typedef struct {
 // Expression Tree Parser:
 enum {
     ND_NUM = 256,   // Integer node type
+    ND_IDENT,       // Identifier node type
 };
 
 typedef struct Node {
     int ty;         // Node type
     int val;        // Integer value if node is of type ND_NUM
+    char name;      // Name of the identifier if type is ND_IDENT
     struct Node *lhs;
     struct Node *rhs;
 } Node;
@@ -41,6 +44,13 @@ Node *new_operation_node(int op, Node *lhs, Node *rhs) {
     node->ty = op;
     node->lhs = lhs;
     node->rhs = rhs;
+    return node;
+}
+
+Node *new_identifier_node(char name) {
+    Node *node = malloc(sizeof(Node));
+    node->ty = ND_IDENT;
+    node->name = name;
     return node;
 }
 
@@ -77,6 +87,16 @@ TokenStream *tokenize(char *p) {
             continue;
         }
 
+        // Allow recognizing single lowercase characters as identifiers
+        if('a' <= *p && *p <= 'z') {
+            tokens[i].ty = TK_IDENT;
+            tokens[i].input = p;
+            tokens[i].val = *p;
+            i++;
+            p++;
+            continue;
+        }
+
         switch (*p) {
             case '+':
             case '-':
@@ -84,6 +104,8 @@ TokenStream *tokenize(char *p) {
             case '*':
             case ')':
             case '(':
+            case '=':
+            case ';':
                 tokens[i].ty = *p;
                 tokens[i].input = p;
                 i++;
@@ -102,15 +124,51 @@ TokenStream *tokenize(char *p) {
 }
 
 // Prototypes for back-referencing/mutual recursion
+Node *statement(TokenStream *token_stream);
+Node *assignment(TokenStream *token_stream);
 Node *expr(TokenStream *token_stream);
 Node *mul(TokenStream *token_stream);
 Node *term(TokenStream *token_stream);
 
-Node *parse_expression_tree(TokenStream *token_stream) {
-    int old_pos = *(token_stream->pos);
-    Node *node = expr(token_stream);
+Node **parse_statements(TokenStream *token_stream) {
+    Token *tokens = token_stream->tokens;
+    int *pos = token_stream->pos;
+
+    // Keep track of our initial position to keep things tidy™
+    int old_pos = *pos;
+
+    // As long as we haven't hit the end of the file, we keep parsing new statements
+    // statement() should fail if it doesn't advance (i.e. find a semicolon), so this shouldn't infinitely loop
+    Node **statements = malloc(100 * sizeof(Node));
+    for(int i = 0; tokens[*pos].ty != TK_EOF; i++) {
+        statements[i] = statement(token_stream);
+    }
+
     *(token_stream->pos) = old_pos;
-    return node;
+    return statements;
+}
+
+// assign -> <expr> <assign'> ;
+Node *statement(TokenStream *token_stream) {
+    Token *tokens = token_stream->tokens;
+    int *pos = token_stream->pos;
+
+    Node *lhs = expr(token_stream);
+
+    switch(tokens[*pos].ty) {
+        case ';':
+            // When we hit a semicolon, advance and return our completed statement
+            *pos = *pos + 1;
+            return lhs;
+        case '=':
+            // If we are doing an assignment, advance and try to evaluate the rest as a statement
+            *pos = *pos + 1;
+            return new_operation_node('=', lhs, statement(token_stream));
+        default:
+            // Throw an error if we don't have a semicolon
+            fprintf(stderr, "Unexpected token occured during statement parse. Maybe missing a semicolon?: %s (%i) (%d)\n", tokens[*pos].input, tokens[*pos].ty, *pos);
+            exit(1);
+    }
 }
 
 // Create an expression tree from a stream of tokens
@@ -122,6 +180,8 @@ Node *expr(TokenStream *token_stream) {
     switch (tokens[*pos].ty) {
         case TK_EOF:
         case ')':
+        case '=':
+        case ';':
             return lhs;
         case '+':
             *pos = *pos + 1;
@@ -144,6 +204,8 @@ Node *mul(TokenStream *token_stream) {
         case '+':
         case '-':
         case ')':
+        case '=':
+        case ';':
             return lhs;
         case '*':
             *pos = *pos + 1;
@@ -165,6 +227,9 @@ Node *term(TokenStream *token_stream) {
         case TK_NUM:
             *pos = *pos + 1;
             return new_numeric_node(tokens[*pos - 1].val);
+        case TK_IDENT:
+            *pos = *pos + 1;
+            return new_identifier_node(tokens[*pos - 1].val);
         case '(':
             *pos = *pos + 1;
             Node *node = expr(token_stream);
@@ -178,24 +243,49 @@ Node *term(TokenStream *token_stream) {
     }
 }
 
-// Compiling an expression tree to assembly uses a recursive approach:
-//      1. If our node is a number (leaf), just push it to the stack.
-//      2. If our node is an operation, compile the left hand side, 
-//      then the right hand side, then pop both and perform the operation, \
-//      and finally return the result to the stack.
-void compile_expression_tree(Node *expression_tree) {
-    switch(expression_tree->ty) {
-        // Base case: numbers
+// Generate the code to put an lval's address on the stack.
+void gen_lval(Node *node) {
+    if(node->ty == ND_IDENT) {
+        printf("\tmov rax, rbp\n");
+        // Add n-byte offset, where n is that character's ordinal location in the alphabet
+        printf("\tsub rax, %d\n", ('z'- node->name + 1) * 8);
+        // Push the memory address of our variable onto the stack
+        printf("\tpush rax\n");
+    }
+}
+
+// Generate assembly code from an expression tree using a recursive approach.
+void gen(Node *statement_tree) {
+    switch(statement_tree->ty) {
         case ND_NUM:
-            printf("\tpush %d\n", expression_tree->val);
+            // For numbers, we only push the direct value on the stack
+            printf("\tpush %d\n", statement_tree->val);
+            break;
+        case ND_IDENT:
+            // Fetch the value in that address and store it on the stack
+            gen_lval(statement_tree);
+            printf("\tpop rax\n");
+            printf("\tmov rax, [rax]\n");
+            printf("\tpush rax\n");
+            break;
+        case '=':
+            // The left-hand side of any assignment must be an lval
+            gen_lval(statement_tree->lhs);
+            // Generate the value that we want to put into this lval
+            gen(statement_tree->rhs);
+            printf("\tpop rdi\n");
+            printf("\tpop rax\n");
+            printf("\tmov [rax], rdi\n");
+            // By storing our value back on the stack we can chain assignments
+            printf("\tpush rdi\n");
             break;
         // Recursive case: operations
         default:
-            compile_expression_tree(expression_tree->lhs);
-            compile_expression_tree(expression_tree->rhs);
+            gen(statement_tree->lhs);
+            gen(statement_tree->rhs);
             printf("\tpop rdi\n");
             printf("\tpop rax\n");
-            switch(expression_tree->ty) {
+            switch(statement_tree->ty) {
                 case '*':
                     printf("\tmul rdi\n");
                     break;
@@ -210,7 +300,7 @@ void compile_expression_tree(Node *expression_tree) {
                     printf("\tsub rax, rdi\n");
                     break;
                 default:
-                    fprintf(stderr, "Unknown operator %c (%d)\n", expression_tree->ty, expression_tree->ty);
+                    fprintf(stderr, "Unknown operator %c (%d)\n", statement_tree->ty, statement_tree->ty);
                     exit(1);
             }
             printf("\tpush rax\n");
@@ -230,20 +320,29 @@ int main(int argc, char **argv) {
     
     // Tokenize our input
     TokenStream *token_stream = tokenize(argv[1]);
-    Token *tokens = token_stream->tokens;
-
-    // At the present time, we parse our expression tree, but we keep using the tokens as before.
-    Node *expression_tree = parse_expression_tree(token_stream);
+    Node **statements = parse_statements(token_stream);
 
     // Preliminary headers for assembly
     printf(".intel_syntax noprefix\n");
     printf(".global main\n");
     printf("main:\n");
-    
-    compile_expression_tree(expression_tree);
-    // Technically the value should already be in rax, but we should clear the stack anyway.
-    printf("\tpop rax\n");
 
+    // Function prologue:
+    printf("\tpush rbp\n");
+    printf("\tmov rbp, rsp\n");
+    // Right now we reserve space as though we'll use every variable
+    printf("\tsub rsp, 208\n");
+    
+    // Generate every statement we've written
+    for(int i = 0; statements[i]; i++) {
+        gen(statements[i]);
+        // Technically the value should already be in rax, but we should clear the stack anyway.
+        printf("\tpop rax\n");
+    }
+
+    // Function epilogue:
+    printf("\tmov rsp, rbp\n");
+    printf("\tpop rbp\n");
     printf("\tret\n");
     return 0;
 }
