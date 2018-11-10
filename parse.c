@@ -36,35 +36,31 @@ Node *new_numeric_node(int val) {
 }
 
 // Prototypes for back-referencing/mutual recursion
-Node *statement(TokenStream *token_stream);
-Node *precedence_12(TokenStream *token_stream);
+Node *statement(Vector *tokens, int *pos);
+Node *precedence_12(Vector *tokens, int *pos);
 
-Node **parse_statements(TokenStream *token_stream) {
-    Token *tokens = token_stream->tokens;
-    int *pos = token_stream->pos;
-
-    // Keep track of our initial position to keep things tidy™
-    int old_pos = *pos;
+Vector *parse_statements(Vector *tokens) {
+    int *pos = malloc(sizeof(int));
+    *pos = 0;
 
     // As long as we haven't hit the end of the file, we keep parsing new statements
     // statement() should fail if it doesn't advance (i.e. find a semicolon), so this shouldn't infinitely loop
-    Node **statements = malloc(100 * sizeof(Node));
-    for(int i = 0; tokens[*pos].ty != TK_EOF; i++) {
-        statements[i] = statement(token_stream);
+    Vector *statements = new_vector();
+    Token *current_token = (Token *)tokens->data[*pos];
+    while(current_token->ty != TK_EOF) {
+        vec_push(statements, statement(tokens, pos));
+        current_token = (Token *)tokens->data[*pos];
     }
 
-    *(token_stream->pos) = old_pos;
     return statements;
 }
 
 // assign -> <expr> <assign'> ;
-Node *statement(TokenStream *token_stream) {
-    Token *tokens = token_stream->tokens;
-    int *pos = token_stream->pos;
+Node *statement(Vector *tokens, int *pos) {
+    Node *lhs = precedence_12(tokens, pos);
+    Token *current_token = (Token *)tokens->data[*pos];
 
-    Node *lhs = precedence_12(token_stream);
-
-    switch(tokens[*pos].ty) {
+    switch (current_token->ty) {
         case ';':
             // When we hit a semicolon, advance and return our completed statement
             *pos = *pos + 1;
@@ -72,10 +68,10 @@ Node *statement(TokenStream *token_stream) {
         case '=':
             // If we are doing an assignment, advance and try to evaluate the rest as a statement
             *pos = *pos + 1;
-            return new_operation_node('=', lhs, statement(token_stream));
+            return new_operation_node('=', lhs, statement(tokens, pos));
         default:
             // Throw an error if we don't have a semicolon
-            return unexpected_token(tokens[*pos], "You may be missing a semicolon.");
+            return unexpected_token(*current_token, "You may be missing a semicolon.");
     }
 }
 
@@ -90,39 +86,38 @@ Node *statement(TokenStream *token_stream) {
 // Precedence 0:
 //  Parentheses, brackets, member selection via object name/pointer, 
 //  postfix increment/decrement
-Node *precedence_0(TokenStream *token_stream) {
-    Token *tokens = token_stream->tokens;
-    int *pos = token_stream->pos;
+Node *precedence_0(Vector *tokens, int *pos) {
+    Token *current_token = (Token *)tokens->data[*pos];
     
-    switch (tokens[*pos].ty) {
+    switch (current_token->ty){
         case TK_NUM:
             *pos = *pos + 1;
-            return new_numeric_node(tokens[*pos - 1].val);
+            return new_numeric_node(current_token->val);
         case TK_IDENT:
             *pos = *pos + 1;
-            return new_identifier_node(tokens[*pos - 1].val);
+            return new_identifier_node(current_token->val);
         case '(':
             *pos = *pos + 1;
-            Node *node = precedence_12(token_stream);
-            if (tokens[*pos].ty != ')') {
-                unexpected_token(tokens[*pos], "Make sure all parentheses are properly enclosed.");
+            Node *node = precedence_12(tokens, pos);
+            Token *next_token = (Token *)tokens->data[*pos];
+            if (next_token->ty != ')') {
+                unexpected_token(*next_token, "Make sure all parentheses are properly enclosed.");
             }
             *pos = *pos + 1;
             return node;
         default:
-            return unexpected_token(tokens[*pos], NULL);
+            return unexpected_token(*current_token, NULL);
     }
 }
 
 // Precedence 1 (Right-to-left associative):
 //  Prefix increment/decrement, unary plus/minus, logical negation, 
 //  bitwise complement, casts, dereference, address, sizeof
-Node *precedence_1(TokenStream *token_stream) {
-    Token *tokens = token_stream->tokens;
-    int *pos = token_stream->pos;
+Node *precedence_1(Vector *tokens, int *pos) {
+    Node *lhs = precedence_0(tokens, pos);
 
-    Node *lhs = precedence_0(token_stream);
-    switch (tokens[*pos].ty) {
+    Token *current_token = (Token *)tokens->data[*pos];
+    switch (current_token->ty) {
         default:
             return lhs;
     }
@@ -130,18 +125,17 @@ Node *precedence_1(TokenStream *token_stream) {
 
 // Precedence 2:
 //  Multiplication, division, modulus
-Node *precedence_2(TokenStream *token_stream) {
-    Token *tokens = token_stream->tokens;
-    int *pos = token_stream->pos;
+Node *precedence_2(Vector *tokens, int *pos) {
+    Node *lhs = precedence_1(tokens, pos);
 
-    Node *lhs = precedence_1(token_stream);
-    switch (tokens[*pos].ty) {
+    Token *current_token = (Token *)tokens->data[*pos];
+    switch (current_token->ty) {
         case '*':
             *pos = *pos + 1;
-            return new_operation_node('*', lhs, precedence_2(token_stream));
+            return new_operation_node('*', lhs, precedence_2(tokens, pos));
         case '/':
             *pos = *pos + 1;
-            return new_operation_node('/', lhs, precedence_2(token_stream));
+            return new_operation_node('/', lhs, precedence_2(tokens, pos));
         default:
             return lhs;
     }
@@ -149,18 +143,17 @@ Node *precedence_2(TokenStream *token_stream) {
 
 // Precedence 3:
 //  Addition, subtraction
-Node *precedence_3(TokenStream *token_stream) {
-    Token *tokens = token_stream->tokens;
-    int *pos = token_stream->pos;
+Node *precedence_3(Vector *tokens, int *pos) {
+    Node *lhs = precedence_2(tokens, pos);
 
-    Node *lhs = precedence_2(token_stream);
-    switch (tokens[*pos].ty) {
+    Token *current_token = (Token *)tokens->data[*pos];
+    switch (current_token->ty) {
         case '+':
             *pos = *pos + 1;
-            return new_operation_node('+', lhs, precedence_3(token_stream));
+            return new_operation_node('+', lhs, precedence_3(tokens, pos));
         case '-':
             *pos = *pos + 1;
-            return new_operation_node('-', lhs, precedence_3(token_stream));
+            return new_operation_node('-', lhs, precedence_3(tokens, pos));
         default:
             return lhs;
     }
@@ -168,12 +161,11 @@ Node *precedence_3(TokenStream *token_stream) {
 
 // Precedence 4:
 //  Bitwise left/right shift
-Node *precedence_4(TokenStream *token_stream) {
-    Token *tokens = token_stream->tokens;
-    int *pos = token_stream->pos;
+Node *precedence_4(Vector *tokens, int *pos) {
+    Node *lhs = precedence_3(tokens, pos);
 
-    Node *lhs = precedence_3(token_stream);
-    switch (tokens[*pos].ty) {
+    Token *current_token = (Token *)tokens->data[*pos];
+    switch (current_token->ty) {
         default:
             return lhs;
     }
@@ -181,12 +173,11 @@ Node *precedence_4(TokenStream *token_stream) {
 
 // Precedence 5:
 //  Relational lt/gt/geq/leq
-Node *precedence_5(TokenStream *token_stream) {
-    Token *tokens = token_stream->tokens;
-    int *pos = token_stream->pos;
+Node *precedence_5(Vector *tokens, int *pos) {
+    Node *lhs = precedence_4(tokens, pos);
 
-    Node *lhs = precedence_4(token_stream);
-    switch (tokens[*pos].ty) {
+    Token *current_token = (Token *)tokens->data[*pos];
+    switch (current_token->ty) {
         default:
             return lhs;
     }
@@ -194,18 +185,17 @@ Node *precedence_5(TokenStream *token_stream) {
 
 // Precedence 6:
 //  Relational eq/neq
-Node *precedence_6(TokenStream *token_stream) {
-    Token *tokens = token_stream->tokens;
-    int *pos = token_stream->pos;
+Node *precedence_6(Vector *tokens, int *pos) {
+    Node *lhs = precedence_5(tokens, pos);
 
-    Node *lhs = precedence_5(token_stream);
-    switch (tokens[*pos].ty) {
+    Token *current_token = (Token *)tokens->data[*pos];
+    switch (current_token->ty) {
         case TK_EQUAL:
             *pos = *pos + 1;
-            return new_operation_node(ND_EQUAL, lhs, precedence_6(token_stream));
+            return new_operation_node(ND_EQUAL, lhs, precedence_6(tokens, pos));
         case TK_NEQUAL:
             *pos = *pos + 1;
-            return new_operation_node(ND_NEQUAL, lhs, precedence_6(token_stream));
+            return new_operation_node(ND_NEQUAL, lhs, precedence_6(tokens, pos));
         default:
             return lhs;
     }
@@ -213,12 +203,11 @@ Node *precedence_6(TokenStream *token_stream) {
 
 // Precedence 7: 
 //  Bitwise AND
-Node *precedence_7(TokenStream *token_stream) {
-    Token *tokens = token_stream->tokens;
-    int *pos = token_stream->pos;
+Node *precedence_7(Vector *tokens, int *pos) {    
+    Node *lhs = precedence_6(tokens, pos);
 
-    Node *lhs = precedence_6(token_stream);
-    switch (tokens[*pos].ty) {
+    Token *current_token = (Token *)tokens->data[*pos];
+    switch (current_token->ty) {
         default:
             return lhs;
     }
@@ -226,12 +215,11 @@ Node *precedence_7(TokenStream *token_stream) {
 
 // Precedence 8:
 //  Bitwise xor
-Node *precedence_8(TokenStream *token_stream) {
-    Token *tokens = token_stream->tokens;
-    int *pos = token_stream->pos;
+Node *precedence_8(Vector *tokens, int *pos) {    
+    Node *lhs = precedence_7(tokens, pos);
 
-    Node *lhs = precedence_7(token_stream);
-    switch (tokens[*pos].ty) {
+    Token *current_token = (Token *)tokens->data[*pos];
+    switch (current_token->ty) {
         default:
             return lhs;
     }
@@ -239,12 +227,11 @@ Node *precedence_8(TokenStream *token_stream) {
 
 // Precedence 9:
 //  Bitwise or
-Node *precedence_9(TokenStream *token_stream) {
-    Token *tokens = token_stream->tokens;
-    int *pos = token_stream->pos;
+Node *precedence_9(Vector *tokens, int *pos) {    
+    Node *lhs = precedence_8(tokens, pos);
 
-    Node *lhs = precedence_8(token_stream);
-    switch (tokens[*pos].ty) {
+    Token *current_token = (Token *)tokens->data[*pos];
+    switch (current_token->ty) {
         default:
             return lhs;
     }
@@ -252,12 +239,11 @@ Node *precedence_9(TokenStream *token_stream) {
 
 // Precedence 10:
 //  Logical AND
-Node *precedence_10(TokenStream *token_stream) {
-    Token *tokens = token_stream->tokens;
-    int *pos = token_stream->pos;
+Node *precedence_10(Vector *tokens, int *pos) {
+    Node *lhs = precedence_9(tokens, pos);
 
-    Node *lhs = precedence_9(token_stream);
-    switch (tokens[*pos].ty) {
+    Token *current_token = (Token *)tokens->data[*pos];
+    switch (current_token->ty) {
         default:
             return lhs;
     }
@@ -265,12 +251,11 @@ Node *precedence_10(TokenStream *token_stream) {
 
 // Precedence 11:
 //  Logical OR
-Node *precedence_11(TokenStream *token_stream) {
-    Token *tokens = token_stream->tokens;
-    int *pos = token_stream->pos;
+Node *precedence_11(Vector *tokens, int *pos) {    
+    Node *lhs = precedence_10(tokens, pos);
 
-    Node *lhs = precedence_10(token_stream);
-    switch (tokens[*pos].ty) {
+    Token *current_token = (Token *)tokens->data[*pos];
+    switch (current_token->ty) {
         default:
             return lhs;
     }
@@ -278,12 +263,11 @@ Node *precedence_11(TokenStream *token_stream) {
 
 // Precedence 12:
 //  Ternary Conditional
-Node *precedence_12(TokenStream *token_stream) {
-    Token *tokens = token_stream->tokens;
-    int *pos = token_stream->pos;
+Node *precedence_12(Vector *tokens, int *pos) {
+    Node *lhs = precedence_11(tokens, pos);
 
-    Node *lhs = precedence_11(token_stream);
-    switch (tokens[*pos].ty) {
+    Token *current_token = (Token *)tokens->data[*pos];
+    switch (current_token->ty) {
         default:
             return lhs;
     }

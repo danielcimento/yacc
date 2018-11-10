@@ -41,12 +41,7 @@ typedef struct {
     char *input;    // Token's string representation (for error messages)
 } Token;
 
-typedef struct {
-    Token tokens[100];
-    int *pos;
-} TokenStream;
-
-TokenStream *tokenize(char *p);
+Vector *tokenize(char *p);
 
 enum {
     ND_NUM = 256,   // Integer node type
@@ -63,7 +58,7 @@ typedef struct Node {
     struct Node *rhs;
 } Node;
 
-Node **parse_statements(TokenStream *token_stream);
+Vector *parse_statements(Vector *tokens);
 
 void gen(Node *statement_tree);
 

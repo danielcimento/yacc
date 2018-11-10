@@ -12,8 +12,8 @@ int main(int argc, char **argv) {
     }
     
     // Tokenize our input
-    TokenStream *token_stream = tokenize(argv[1]);
-    Node **statements = parse_statements(token_stream);
+    Vector *token_stream = tokenize(argv[1]);
+    Vector *statements = parse_statements(token_stream);
 
     // Preliminary headers for assembly
     printf(".intel_syntax noprefix\n");
@@ -27,8 +27,8 @@ int main(int argc, char **argv) {
     printf("\tsub rsp, 208\n");
     
     // Generate every statement we've written
-    for(int i = 0; statements[i]; i++) {
-        gen(statements[i]);
+    for(int i = 0; i < statements->len; i++) {
+        gen((Node *)statements->data[i]);
         // Technically the value should already be in rax, but we should clear the stack anyway.
         printf("\tpop rax\n");
     }
