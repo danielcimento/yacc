@@ -5,6 +5,11 @@ int main(int argc, char **argv) {
         fprintf(stderr, "You did not provide the correct number of arguments! (Expected 1)\n");
         return 1;
     }
+
+    if (strcmp(argv[1], "-test") == 0) {
+        run_test();
+        exit(0);
+    }
     
     // Tokenize our input
     TokenStream *token_stream = tokenize(argv[1]);

@@ -66,3 +66,5 @@ typedef struct Node {
 Node **parse_statements(TokenStream *token_stream);
 
 void gen(Node *statement_tree);
+
+void run_test();

@@ -11,7 +11,7 @@ Vector *new_vector() {
 void vec_push(Vector *vec, void *elem) {
     if(vec->capacity == vec->len) {
         vec->capacity *= 2;
-        vec->data = realloc(vec->data, vec->capacity);
+        vec->data = realloc(vec->data, (vec->capacity) * sizeof(void *));
     }
     vec->data[vec->len++] = elem;
 }
@@ -29,7 +29,7 @@ void map_put(Map *map, char *key, void *val) {
 }
 
 void *map_get(Map *map, char *key) {
-    for(int i = map->keys->len - 1; i > 0; i--) {
+    for(int i = map->keys->len - 1; i >= 0; i--) {
         if(strcmp(map->keys->data[i], key) == 0) {
             return map->vals->data[i];
         }

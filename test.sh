@@ -51,4 +51,4 @@ try 5 "a = b = 5; c = a == b; c * 5;"
 try 1 "5 == 3 + 2;"
 try 1 "2 + 3 == 5;"
 
-echo OK
+echo "OK"

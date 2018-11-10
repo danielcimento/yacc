@@ -1,4 +1,4 @@
-CFLAGS=-Wall -std=c11
+CFLAGS=-Wall -std=c11 -g
 SRCS=$(wildcard *.c)
 OBJS=$(SRCS:.c=.o)
 
@@ -8,6 +8,7 @@ yacc: $(OBJS)
 $(OBJS): yacc.h
 
 test: yacc
+	./yacc -test
 	./test.sh
 
 clean:
