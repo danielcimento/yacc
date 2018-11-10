@@ -56,6 +56,16 @@ void gen(Node *statement_tree) {
                 case '-':
                     printf("\tsub rax, rdi\n");
                     break;
+                case ND_EQUAL:
+                    printf("\tcmp rdi, rax\n");
+                    printf("\tsete al\n");
+                    printf("\tmovzb rax, al\n");
+                    break;
+                case ND_NEQUAL:
+                    printf("\tcmp rdi, rax\n");
+                    printf("\tsetne al\n");
+                    printf("\tmovzb rax, al\n");
+                    break;
                 default:
                     fprintf(stderr, "Unknown operator %c (%d)\n", statement_tree->ty, statement_tree->ty);
                     exit(CODEGEN_ERROR);

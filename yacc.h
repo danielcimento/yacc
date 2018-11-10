@@ -13,6 +13,8 @@ enum {
     TK_NUM = 256,   // Integer tokens
     TK_IDENT,       // Identifier tokens
     TK_EOF,         // End of input token
+    TK_EQUAL,       // ==
+    TK_NEQUAL,      // !=
 };
 
 typedef struct {
@@ -31,6 +33,8 @@ TokenStream *tokenize(char *p);
 enum {
     ND_NUM = 256,   // Integer node type
     ND_IDENT,       // Identifier node type
+    ND_EQUAL,       // Equality operator node type
+    ND_NEQUAL,      // Not equals operator node type
 };
 
 typedef struct Node {

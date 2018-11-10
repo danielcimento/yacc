@@ -37,10 +37,17 @@ Node *new_numeric_node(int val) {
 
 // Prototypes for back-referencing/mutual recursion
 Node *statement(TokenStream *token_stream);
-Node *assignment(TokenStream *token_stream);
-Node *expr(TokenStream *token_stream);
-Node *mul(TokenStream *token_stream);
-Node *term(TokenStream *token_stream);
+Node *precedence_4(TokenStream *token_stream);
+Node *precedence_3(TokenStream *token_stream);
+Node *precedence_2(TokenStream *token_stream);
+Node *precedence_0(TokenStream *token_stream);
+
+// The general structure for a precedence function is as follows:
+//      1. Extract the tokens and pos for easier manipulation
+//      2. Try to parse a higher precedence (lower number) as the left-hand side
+//      3. If we find a token of this tier's precedence, create it as a node 
+//         and parse the right hand side as the same precedence tier
+//      4. If we don't find a token of this tier's precedence, just return the left-hand side.
 
 Node **parse_statements(TokenStream *token_stream) {
     Token *tokens = token_stream->tokens;
@@ -65,7 +72,7 @@ Node *statement(TokenStream *token_stream) {
     Token *tokens = token_stream->tokens;
     int *pos = token_stream->pos;
 
-    Node *lhs = expr(token_stream);
+    Node *lhs = precedence_4(token_stream);
 
     switch(tokens[*pos].ty) {
         case ';':
@@ -82,55 +89,60 @@ Node *statement(TokenStream *token_stream) {
     }
 }
 
-// Create an expression tree from a stream of tokens
-Node *expr(TokenStream *token_stream) {
+Node *precedence_4(TokenStream *token_stream) {
     Token *tokens = token_stream->tokens;
     int *pos = token_stream->pos;
 
-    Node *lhs = mul(token_stream);
+    Node *lhs = precedence_3(token_stream);
     switch (tokens[*pos].ty) {
-        case TK_EOF:
-        case ')':
-        case '=':
-        case ';':
-            return lhs;
-        case '+':
+        case TK_EQUAL:
             *pos = *pos + 1;
-            return new_operation_node('+', lhs, expr(token_stream));
-        case '-':
+            return new_operation_node(ND_EQUAL, lhs, precedence_4(token_stream));
+        case TK_NEQUAL:
             *pos = *pos + 1;
-            return new_operation_node('-', lhs, expr(token_stream));
+            return new_operation_node(ND_NEQUAL, lhs, precedence_4(token_stream));
         default:
-            return unexpected_token(tokens[*pos], NULL);
+            return lhs;
     }
 }
 
-Node *mul(TokenStream *token_stream) {
+// Create an expression tree from a stream of tokens
+Node *precedence_3(TokenStream *token_stream) {
     Token *tokens = token_stream->tokens;
     int *pos = token_stream->pos;
 
-    Node *lhs = term(token_stream);
+    Node *lhs = precedence_2(token_stream);
     switch (tokens[*pos].ty) {
-        case TK_EOF:
         case '+':
+            *pos = *pos + 1;
+            return new_operation_node('+', lhs, precedence_3(token_stream));
         case '-':
-        case ')':
-        case '=':
-        case ';':
+            *pos = *pos + 1;
+            return new_operation_node('-', lhs, precedence_3(token_stream));
+        default:
             return lhs;
+    }
+}
+
+Node *precedence_2(TokenStream *token_stream) {
+    Token *tokens = token_stream->tokens;
+    int *pos = token_stream->pos;
+
+    Node *lhs = precedence_0(token_stream);
+    switch (tokens[*pos].ty) {
         case '*':
             *pos = *pos + 1;
-            return new_operation_node('*', lhs, mul(token_stream));
+            return new_operation_node('*', lhs, precedence_2(token_stream));
         case '/':
             *pos = *pos + 1;
-            return new_operation_node('/', lhs, mul(token_stream));
+            return new_operation_node('/', lhs, precedence_2(token_stream));
         default:
-            return unexpected_token(tokens[*pos], NULL);
+            return lhs;
     }
 }
 
 // A term can either be a number, or an entire expression wrapped in parentheses
-Node *term(TokenStream *token_stream) {
+Node *precedence_0(TokenStream *token_stream) {
     Token *tokens = token_stream->tokens;
     int *pos = token_stream->pos;
     
@@ -143,7 +155,7 @@ Node *term(TokenStream *token_stream) {
             return new_identifier_node(tokens[*pos - 1].val);
         case '(':
             *pos = *pos + 1;
-            Node *node = expr(token_stream);
+            Node *node = precedence_4(token_stream);
             if (tokens[*pos].ty != ')') {
                 unexpected_token(tokens[*pos], "Make sure all parentheses are properly enclosed.");
             }

@@ -37,13 +37,28 @@ TokenStream *tokenize(char *p) {
         }
 
         switch (*p) {
+            case '=':
+                if(*(p + 1) == '=') {
+                    tokens[i].ty = TK_EQUAL;
+                    tokens[i].input = p;
+                    i++;
+                    p += 2;
+                    continue;
+                }
+            case '!':
+                if(*(p + 1) == '=') {
+                    tokens[i].ty = TK_NEQUAL;
+                    tokens[i].input = p;
+                    i++;
+                    p += 2;
+                    continue;
+                }
             case '+':
             case '-':
             case '/':
             case '*':
             case ')':
             case '(':
-            case '=':
             case ';':
                 tokens[i].ty = *p;
                 tokens[i].input = p;

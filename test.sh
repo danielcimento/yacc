@@ -39,4 +39,16 @@ try 4 "(3+5)/2;"
 # Case 5: Variables
 try 12 "a = 1; b = 2; c = 4; (a + b) * c;"
 
+# Case 6: Equality
+try 1 "3 == 3;"
+try 0 "3 == 2;"
+try 1 "3 != 2;"
+try 0 "3 != 3;"
+try 1 "a = 4; b = 4; a == b;"
+try 0 "a = b = 5; a != b;"
+try 2 "(1 != 2) + (12 == 12);"
+try 5 "a = b = 5; c = a == b; c * 5;"
+try 1 "5 == 3 + 2;"
+try 1 "2 + 3 == 5;"
+
 echo OK
