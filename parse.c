@@ -80,7 +80,7 @@ Node *statement(TokenStream *token_stream) {
 }
 
 // The general structure for a precedence function is as follows:
-//      1. Extract the tokens and pos for easier manipulation
+//      1. Extract the tokens and pos from the token stream for easier manipulation
 //      2. Try to parse a higher precedence (lower number) as the left-hand side
 //      3. If we find a token of this tier's precedence, create it as a node 
 //         and parse the right hand side as the same precedence tier

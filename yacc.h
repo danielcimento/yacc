@@ -3,6 +3,24 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef struct {
+    void **data;
+    int capacity;
+    int len;
+} Vector;
+
+Vector *new_vector();
+void vec_push(Vector *vec, void *elem);
+
+typedef struct {
+    Vector *keys;
+    Vector *vals;
+} Map;
+
+Map *new_map();
+void map_put(Map *map, char *key, void *val);
+void *map_get(Map *map, char *key);
+
 enum {
     TOKENIZE_ERROR = 1,
     PARSE_ERROR = 2,
