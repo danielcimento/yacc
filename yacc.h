@@ -53,14 +53,16 @@ enum {
     ND_NEQUAL,      // Not equals operator node type
     ND_GEQUAL,      // >=
     ND_LEQUAL,      // <=
+    ND_UNARY_NEG,   // Unary -
 };
 
 typedef struct Node {
     int ty;         // Node type
     int val;        // Integer value if node is of type ND_NUM
     char *name;      // Name of the identifier if type is ND_IDENT
-    struct Node *lhs;
-    struct Node *rhs;
+    struct Node *left;      // Left child. First arg in binary/ternary operations
+    struct Node *middle;    // Middle child. First arg in unary operations. Second arg in ternary operations
+    struct Node *right;     // Right child. Second arg in binary operations. Third arg in ternary operations
 } Node;
 
 Vector *parse_statements(Vector *tokens);

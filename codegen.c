@@ -27,19 +27,26 @@ void gen(Node *statement_tree, Map *local_variables) {
             break;
         case '=':
             // The left-hand side of any assignment must be an lval
-            gen_lval(statement_tree->lhs, local_variables);
+            gen_lval(statement_tree->left, local_variables);
             // Generate the value that we want to put into this lval
-            gen(statement_tree->rhs, local_variables);
+            gen(statement_tree->right, local_variables);
             printf("\tpop rdi\n");
             printf("\tpop rax\n");
             printf("\tmov [rax], rdi\n");
             // By storing our value back on the stack we can chain assignments
             printf("\tpush rdi\n");
             break;
-        // Recursive case: operations
+        // Unary negation
+        case ND_UNARY_NEG:
+            gen(statement_tree->middle, local_variables);
+            printf("\tpop rax\n");
+            printf("\tneg rax\n");
+            printf("\tpush rax\n");
+            break;
+        // Default recursive case: binary operations
         default:
-            gen(statement_tree->lhs, local_variables);
-            gen(statement_tree->rhs, local_variables);
+            gen(statement_tree->left, local_variables);
+            gen(statement_tree->right, local_variables);
             printf("\tpop rdi\n");
             printf("\tpop rax\n");
             switch(statement_tree->ty) {

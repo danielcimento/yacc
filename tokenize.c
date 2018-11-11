@@ -17,7 +17,6 @@ bool is_identifier_character(char c) {
 // Divides the string `p` into tokens and stores them in a token stream
 Vector *tokenize(char *p) {
     Vector *tokens = new_vector();
-    bool can_be_negative = true;
 
     while (*p) {
         // Skip whitespace
@@ -29,9 +28,8 @@ Vector *tokenize(char *p) {
         // Read all digits in as base 10 numbers.
         // We also account for the very special case
         // where the first number is negative.
-        if (isdigit(*p) || (can_be_negative && *p == '-')) {
+        if (isdigit(*p)) {
             vec_push(tokens, new_token(TK_NUM, p, strtol(p, &p, 10), NULL));
-            can_be_negative = false;
             continue;
         }
 
@@ -44,7 +42,6 @@ Vector *tokenize(char *p) {
             }
             identifier_name[i] = 0;
             vec_push(tokens, new_token(TK_IDENT, p, *p, identifier_name));
-            can_be_negative = false;
             continue;
         }
 
@@ -52,40 +49,35 @@ Vector *tokenize(char *p) {
             case '=':
                 if(*(p + 1) == '=') {
                     vec_push(tokens, new_token(TK_EQUAL, p, 0, NULL));
-                    can_be_negative = true;
                     p += 2;
                     continue;
                 }
             case '!':
                 if(*(p + 1) == '=') {
                     vec_push(tokens, new_token(TK_NEQUAL, p, 0, NULL));
-                    can_be_negative = true;
                     p += 2;
                     continue;
                 }
             case '>':
                 if(*(p + 1) == '=') {
                     vec_push(tokens, new_token(TK_GEQUAL, p, 0, NULL));
-                    can_be_negative = true;
                     p += 2;
                     continue;
                 }
             case '<':
                 if(*(p + 1) == '=') {
                     vec_push(tokens, new_token(TK_LEQUAL, p, 0, NULL));
-                    can_be_negative = true;
                     p += 2;
                     continue;
                 }
-            case '+':
             case '-':
+            case '+':
             case '/':
             case '*':
             case ')':
             case '(':
             case ';':
                 vec_push(tokens, new_token(*p, p, 0, NULL));
-                can_be_negative = true;
                 p++;
                 continue;
             default:

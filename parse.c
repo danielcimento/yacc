@@ -13,11 +13,18 @@ Node *unexpected_token(Token token, char *hint, int line_num, int pos) {
     return NULL;
 }
 
-Node *new_operation_node(int op, Node *lhs, Node *rhs) {
+Node *binary_operation_node(int op, Node *left, Node *right) {
     Node *node = malloc(sizeof(Node));
     node->ty = op;
-    node->lhs = lhs;
-    node->rhs = rhs;
+    node->left = left;
+    node->right = right;
+    return node;
+}
+
+Node *unary_operation_node(int op, Node *child) {
+    Node *node = malloc(sizeof(Node));
+    node->ty = op;
+    node->middle = child;
     return node;
 }
 
@@ -68,7 +75,7 @@ Node *statement(Vector *tokens, int *pos) {
         case '=':
             // If we are doing an assignment, advance and try to evaluate the rest as a statement
             *pos = *pos + 1;
-            return new_operation_node('=', lhs, statement(tokens, pos));
+            return binary_operation_node('=', lhs, statement(tokens, pos));
         default:
             // Throw an error if we don't have a semicolon
             return unexpected_token(*current_token, "You may be missing a semicolon.", __LINE__, *pos);
@@ -113,12 +120,13 @@ Node *precedence_0(Vector *tokens, int *pos) {
 //  Prefix increment/decrement, unary plus/minus, logical negation, 
 //  bitwise complement, casts, dereference, address, sizeof
 Node *precedence_1(Vector *tokens, int *pos) {
-    Node *lhs = precedence_0(tokens, pos);
-
     Token *current_token = (Token *)tokens->data[*pos];
     switch (current_token->ty) {
+        case '-':
+            *pos = *pos + 1;
+            return unary_operation_node(ND_UNARY_NEG, precedence_1(tokens, pos));
         default:
-            return lhs;
+            return precedence_0(tokens, pos);
     }
 }
 
@@ -131,10 +139,10 @@ Node *precedence_2(Vector *tokens, int *pos) {
     switch (current_token->ty) {
         case '*':
             *pos = *pos + 1;
-            return new_operation_node('*', lhs, precedence_2(tokens, pos));
+            return binary_operation_node('*', lhs, precedence_2(tokens, pos));
         case '/':
             *pos = *pos + 1;
-            return new_operation_node('/', lhs, precedence_2(tokens, pos));
+            return binary_operation_node('/', lhs, precedence_2(tokens, pos));
         default:
             return lhs;
     }
@@ -149,10 +157,10 @@ Node *precedence_3(Vector *tokens, int *pos) {
     switch (current_token->ty) {
         case '+':
             *pos = *pos + 1;
-            return new_operation_node('+', lhs, precedence_3(tokens, pos));
+            return binary_operation_node('+', lhs, precedence_3(tokens, pos));
         case '-':
             *pos = *pos + 1;
-            return new_operation_node('-', lhs, precedence_3(tokens, pos));
+            return binary_operation_node('-', lhs, precedence_3(tokens, pos));
         default:
             return lhs;
     }
@@ -179,14 +187,14 @@ Node *precedence_5(Vector *tokens, int *pos) {
     switch (current_token->ty) {
         case TK_LEQUAL:
                 *pos = *pos + 1;
-                return new_operation_node(ND_LEQUAL, lhs, precedence_5(tokens, pos));
+                return binary_operation_node(ND_LEQUAL, lhs, precedence_5(tokens, pos));
             case TK_GEQUAL:
                 *pos = *pos + 1;
-                return new_operation_node(ND_GEQUAL, lhs, precedence_5(tokens, pos));
+                return binary_operation_node(ND_GEQUAL, lhs, precedence_5(tokens, pos));
             case '>':
             case '<':
                 *pos = *pos + 1;
-                return new_operation_node(current_token->ty, lhs, precedence_5(tokens, pos));
+                return binary_operation_node(current_token->ty, lhs, precedence_5(tokens, pos));
         default:
             return lhs;
     }
@@ -201,10 +209,10 @@ Node *precedence_6(Vector *tokens, int *pos) {
     switch (current_token->ty) {
         case TK_EQUAL:
             *pos = *pos + 1;
-            return new_operation_node(ND_EQUAL, lhs, precedence_6(tokens, pos));
+            return binary_operation_node(ND_EQUAL, lhs, precedence_6(tokens, pos));
         case TK_NEQUAL:
             *pos = *pos + 1;
-            return new_operation_node(ND_NEQUAL, lhs, precedence_6(tokens, pos));
+            return binary_operation_node(ND_NEQUAL, lhs, precedence_6(tokens, pos));
         default:
             return lhs;
     }
