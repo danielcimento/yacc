@@ -33,6 +33,8 @@ enum {
     TK_EOF,         // End of input token
     TK_EQUAL,       // ==
     TK_NEQUAL,      // !=
+    TK_GEQUAL,      // >=
+    TK_LEQUAL,      // <=
 };
 
 typedef struct {
@@ -49,6 +51,8 @@ enum {
     ND_IDENT,       // Identifier node type
     ND_EQUAL,       // Equality operator node type
     ND_NEQUAL,      // Not equals operator node type
+    ND_GEQUAL,      // >=
+    ND_LEQUAL,      // <=
 };
 
 typedef struct Node {

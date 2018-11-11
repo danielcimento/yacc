@@ -63,6 +63,20 @@ Vector *tokenize(char *p) {
                     p += 2;
                     continue;
                 }
+            case '>':
+                if(*(p + 1) == '=') {
+                    vec_push(tokens, new_token(TK_GEQUAL, p, 0, NULL));
+                    can_be_negative = true;
+                    p += 2;
+                    continue;
+                }
+            case '<':
+                if(*(p + 1) == '=') {
+                    vec_push(tokens, new_token(TK_LEQUAL, p, 0, NULL));
+                    can_be_negative = true;
+                    p += 2;
+                    continue;
+                }
             case '+':
             case '-':
             case '/':

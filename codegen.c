@@ -66,6 +66,26 @@ void gen(Node *statement_tree, Map *local_variables) {
                     printf("\tsetne al\n");
                     printf("\tmovzb rax, al\n");
                     break;
+                case ND_GEQUAL:
+                    printf("\tcmp rax, rdi\n");
+                    printf("\tsetge al\n");
+                    printf("\tmovzb rax, al\n");
+                    break;
+                case ND_LEQUAL:
+                    printf("\tcmp rax, rdi\n");
+                    printf("\tsetle al\n");
+                    printf("\tmovzb rax, al\n");
+                    break;
+                case '>':
+                    printf("\tcmp rax, rdi\n");
+                    printf("\tsetg al\n");
+                    printf("\tmovzb rax, al\n");
+                    break;
+                case '<':
+                    printf("\tcmp rax, rdi\n");
+                    printf("\tsetl al\n");
+                    printf("\tmovzb rax, al\n");
+                    break;
                 default:
                     fprintf(stderr, "Unknown operator %c (%d)\n", statement_tree->ty, statement_tree->ty);
                     exit(CODEGEN_ERROR);

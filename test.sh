@@ -55,5 +55,13 @@ try 1 "2 + 3 == 5;"
 try 12 "foo = 1; bar = 2; buzz=4;(foo+bar)*buzz;"
 try 12 "foo13 = 1; bar12 = 2; bu_zz=4;(foo13+bar12)*bu_zz;"
 
+# Case 8: Comparison Operators
+try 10 "foo = 10; bar = 3; buzz = 4; (bar < buzz) * foo;"
+try 12 "foo = 12; bar = 5; buzz = 4; (bar > buzz) * foo;"
+try 5 "foo = 10; bar = 5; buzz = 4; (bar <= buzz) * foo + bar;"
+try 1 "10 >= 10;"
+try 0 "12 > 12;"
+try 1 "10 <= 10;"
+try 0 "10 < 10;"
 
 echo "OK"

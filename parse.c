@@ -4,8 +4,8 @@
  ** A parser to turn a stream of tokens into multiple statement expression trees
  **/
 
-Node *unexpected_token(Token token, char *hint) {
-    fprintf(stderr, "Unexpected token occured while parsing: %s (Type: %i)\n", token.input, token.ty);
+Node *unexpected_token(Token token, char *hint, int line_num, int pos) {
+    fprintf(stderr, "[Line %d] Unexpected token occured while parsing: %s (Type: %i) (Pos: %i)\n", line_num, token.input, token.ty, pos);
     if(hint != NULL) {
         fprintf(stderr, "Hint: %s\n", hint);
     }
@@ -71,7 +71,7 @@ Node *statement(Vector *tokens, int *pos) {
             return new_operation_node('=', lhs, statement(tokens, pos));
         default:
             // Throw an error if we don't have a semicolon
-            return unexpected_token(*current_token, "You may be missing a semicolon.");
+            return unexpected_token(*current_token, "You may be missing a semicolon.", __LINE__, *pos);
     }
 }
 
@@ -100,12 +100,12 @@ Node *precedence_0(Vector *tokens, int *pos) {
             Node *node = precedence_12(tokens, pos);
             Token *next_token = (Token *)tokens->data[*pos];
             if (next_token->ty != ')') {
-                unexpected_token(*next_token, "Make sure all parentheses are properly enclosed.");
+                unexpected_token(*next_token, "Make sure all parentheses are properly enclosed.", __LINE__, *pos);
             }
             *pos = *pos + 1;
             return node;
         default:
-            return unexpected_token(*current_token, NULL);
+            return unexpected_token(*current_token, NULL, __LINE__, *pos);
     }
 }
 
@@ -177,6 +177,16 @@ Node *precedence_5(Vector *tokens, int *pos) {
 
     Token *current_token = (Token *)tokens->data[*pos];
     switch (current_token->ty) {
+        case TK_LEQUAL:
+                *pos = *pos + 1;
+                return new_operation_node(ND_LEQUAL, lhs, precedence_5(tokens, pos));
+            case TK_GEQUAL:
+                *pos = *pos + 1;
+                return new_operation_node(ND_GEQUAL, lhs, precedence_5(tokens, pos));
+            case '>':
+            case '<':
+                *pos = *pos + 1;
+                return new_operation_node(current_token->ty, lhs, precedence_5(tokens, pos));
         default:
             return lhs;
     }
