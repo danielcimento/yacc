@@ -21,7 +21,7 @@ Node *new_operation_node(int op, Node *lhs, Node *rhs) {
     return node;
 }
 
-Node *new_identifier_node(char name) {
+Node *new_identifier_node(char *name) {
     Node *node = malloc(sizeof(Node));
     node->ty = ND_IDENT;
     node->name = name;
@@ -76,11 +76,10 @@ Node *statement(Vector *tokens, int *pos) {
 }
 
 // The general structure for a precedence function is as follows:
-//      1. Extract the tokens and pos from the token stream for easier manipulation
-//      2. Try to parse a higher precedence (lower number) as the left-hand side
-//      3. If we find a token of this tier's precedence, create it as a node 
+//      1. Try to parse a higher precedence (lower number) as the left-hand side
+//      2. If we find a token of this tier's precedence, create it as a node 
 //         and parse the right hand side as the same precedence tier
-//      4. If we don't find a token of this tier's precedence, just return the left-hand side.
+//      3. If we don't find a token of this tier's precedence, just return the left-hand side.
 
 
 // Precedence 0:
@@ -95,7 +94,7 @@ Node *precedence_0(Vector *tokens, int *pos) {
             return new_numeric_node(current_token->val);
         case TK_IDENT:
             *pos = *pos + 1;
-            return new_identifier_node(current_token->val);
+            return new_identifier_node(current_token->name);
         case '(':
             *pos = *pos + 1;
             Node *node = precedence_12(tokens, pos);

@@ -51,4 +51,9 @@ try 5 "a = b = 5; c = a == b; c * 5;"
 try 1 "5 == 3 + 2;"
 try 1 "2 + 3 == 5;"
 
+# Case 7: Multicharacter Variables
+try 12 "foo = 1; bar = 2; buzz=4;(foo+bar)*buzz;"
+try 12 "foo13 = 1; bar12 = 2; bu_zz=4;(foo13+bar12)*bu_zz;"
+
+
 echo "OK"

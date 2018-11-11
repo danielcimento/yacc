@@ -23,12 +23,24 @@ int main(int argc, char **argv) {
     // Function prologue:
     printf("\tpush rbp\n");
     printf("\tmov rbp, rsp\n");
-    // Right now we reserve space as though we'll use every variable
-    printf("\tsub rsp, 208\n");
+    
+    // Calculate all the space we need for variables
+    Map *local_variables = new_map();
+    // For every token, if it's an identifier we haven't seen yet, it gets the address 8n bits away, 
+    // where n is the number of identifiers we already had
+    for(int i = 0; i < token_stream->len; i++) {
+        Token *current_token = (Token *)token_stream->data[i];
+        if(current_token->ty == TK_IDENT) {
+            if(map_get(local_variables, current_token->name) == NULL) {
+                map_put(local_variables, current_token->name, (void *)(long)(local_variables->keys->len * 8));
+            }
+        }
+    }
+    printf("\tsub rsp, %d\n", local_variables->keys->len * 8);
     
     // Generate every statement we've written
     for(int i = 0; i < statements->len; i++) {
-        gen((Node *)statements->data[i]);
+        gen((Node *)statements->data[i], local_variables);
         // Technically the value should already be in rax, but we should clear the stack anyway.
         printf("\tpop rax\n");
     }

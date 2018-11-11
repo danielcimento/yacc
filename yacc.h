@@ -38,6 +38,7 @@ enum {
 typedef struct {
     int ty;         // Token type
     int val;        // Value of the token, if a number
+    char *name;
     char *input;    // Token's string representation (for error messages)
 } Token;
 
@@ -53,13 +54,13 @@ enum {
 typedef struct Node {
     int ty;         // Node type
     int val;        // Integer value if node is of type ND_NUM
-    char name;      // Name of the identifier if type is ND_IDENT
+    char *name;      // Name of the identifier if type is ND_IDENT
     struct Node *lhs;
     struct Node *rhs;
 } Node;
 
 Vector *parse_statements(Vector *tokens);
 
-void gen(Node *statement_tree);
+void gen(Node *statement_tree, Map *local_variables);
 
 void run_test();
