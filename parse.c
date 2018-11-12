@@ -152,6 +152,9 @@ Node *precedence_2(Vector *tokens, int *pos) {
         case '/':
             *pos = *pos + 1;
             return binary_operation_node('/', lhs, precedence_2(tokens, pos));
+        case '%':
+            *pos = *pos + 1;
+            return binary_operation_node('%', lhs, precedence_2(tokens, pos));
         default:
             return lhs;
     }

@@ -70,6 +70,11 @@ try 6 "+2 + +4;"
 try 255 "~0;"
 try 0 "~255;"
 try 0 "foo = 5; !foo;"
-# try 1 "foo = 12; foo = foo - foo; !foo;"
+try 1 "foo = 12; foo = foo - foo; !foo;"
+
+# Case 10: Modulus
+try 3 "8 % 5;"
+try 0 "3 % 3;"
+try 0 "6 % 3;"
 
 echo "OK"

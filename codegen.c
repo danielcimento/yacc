@@ -76,6 +76,11 @@ void gen(Node *statement_tree, Map *local_variables) {
                     printf("\tmov rdx, 0\n");
                     printf("\tdiv rdi\n");
                     break;
+                case '%':
+                    printf("\tmov rdx, 0\n");
+                    printf("\tdiv rdi\n");
+                    printf("\tmovzb rax, dl\n");
+                    break;
                 case '+':
                     printf("\tadd rax, rdi\n");
                     break;
