@@ -86,6 +86,8 @@ Vector *tokenize(char *p) {
             case '*':
             case ')':
             case '(':
+            case '}':
+            case '{':
             case ';':
             case '~':
             case '%':

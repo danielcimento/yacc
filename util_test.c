@@ -46,7 +46,10 @@ void test_scope() {
 
     // We should expect to retrieve variables that we've declared
     expect(__LINE__, 2, (long)top_level_scope->variables_declared->keys->len);
-    expect(__LINE__, 4, (long)map_get(top_level_scope->variables_declared, "bar"));
+
+    VariableAddress *bar_location = get_variable_location(top_level_scope, "bar");
+    expect(__LINE__, 4, bar_location->offset);
+    expect(__LINE__, 0, bar_location->scopes_up);
 
     Scope *child_scope = new_scope(top_level_scope);
     Scope *second_child_scope = new_scope(top_level_scope);
@@ -57,6 +60,9 @@ void test_scope() {
     // We should expect to not have variables declared again in children scopes
     declare_variable(child_scope, "foo");
     declare_variable(child_scope, "bar");
+    VariableAddress *bar_from_child_scope = get_variable_location(child_scope, "bar");
+    expect(__LINE__, 1, bar_from_child_scope->scopes_up);
+    expect(__LINE__, 4, bar_from_child_scope->offset);
     expect(__LINE__, -1, (long)map_get(child_scope->variables_declared, "bar"));
 
     // We should expect two scopes at equal levels on the scope hierarchy to both be allowed to have the same variables
@@ -64,13 +70,42 @@ void test_scope() {
     declare_variable(child_scope, "bazz");
     declare_variable(second_child_scope, "buzz");
     declare_variable(second_child_scope, "bazz");
-    expect(__LINE__, 4, (long)map_get(child_scope->variables_declared, "bazz"));
-    expect(__LINE__, 4, (long)map_get(second_child_scope->variables_declared, "bazz"));
+    VariableAddress *bazz_location = get_variable_location(child_scope, "bazz");
+    VariableAddress *bazz_location2 = get_variable_location(child_scope, "bazz");
+    expect(__LINE__, 0, bazz_location->scopes_up);
+    expect(__LINE__, 4, bazz_location->offset);
+    expect(__LINE__, 0, bazz_location2->scopes_up);
+    expect(__LINE__, 4, bazz_location2->offset);
+}
+
+void test_scope_resolution() {
+    char *example_code = "foo = 2; bar = 3; {i = 0; i + 1; {bar = 3; buzz = 2;}} {i = 0; bar = 2;}";
+
+    Vector *tokens = tokenize(example_code);
+    Scope *generated_scope = construct_scope_from_token_stream(tokens);
+
+    expect(__LINE__, 2, generated_scope->sub_scopes->len);
+    VariableAddress *bar_location = get_variable_location(generated_scope, "bar");
+    expect(__LINE__, 0, bar_location->scopes_up);
+    expect(__LINE__, 4, bar_location->offset);
+
+    Scope *sub_scope = (Scope *)generated_scope->sub_scopes->data[0];
+    expect(__LINE__, 1, sub_scope->sub_scopes->len);
+    VariableAddress *bar_location2 = get_variable_location(sub_scope, "bar");
+    expect(__LINE__, 1, bar_location2->scopes_up);
+    expect(__LINE__, 4, bar_location2->offset);
+
+    Scope *sub_sub_scope = (Scope *)sub_scope->sub_scopes->data[0];
+    expect(__LINE__, 0, sub_sub_scope->sub_scopes->len);
+    VariableAddress *bar_location3 = get_variable_location(sub_sub_scope, "bar");
+    expect(__LINE__, 2, bar_location3->scopes_up);
+    expect(__LINE__, 4, bar_location3->offset);
 }
 
 void run_test() {
     test_vector();
     test_map();
     test_scope();
+    test_scope_resolution();
     printf("OK\n");
 }

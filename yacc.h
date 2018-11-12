@@ -27,6 +27,7 @@ enum {
     TOKENIZE_ERROR = 1,
     PARSE_ERROR = 2,
     CODEGEN_ERROR = 3,
+    SCOPE_ERROR = 4,
 };
 
 enum {
@@ -86,8 +87,15 @@ typedef struct Scope {
     struct Scope *parent_scope;
 } Scope;
 
+typedef struct {
+    int offset;     // How far away is the variable from the base pointer of its scope
+    int scopes_up;  // How many base pointers have to be climbed to reach the variable
+} VariableAddress;
+
 Scope *new_scope(Scope *parent_scope);
 void declare_variable(Scope *target_scope, char *variable_name);
+VariableAddress *get_variable_location(Scope *current_scope, char *variable_name);
+Scope *construct_scope_from_token_stream(Vector *tokens);
 
 void gen(Node *statement_tree, Map *local_variables);
 
