@@ -13,41 +13,17 @@ int main(int argc, char **argv) {
     
     // Tokenize our input
     Vector *token_stream = tokenize(argv[1]);
-    Vector *statements = parse_statements(token_stream);
+    Node *global_scope_node = parse_code(token_stream);
 
     // Preliminary headers for assembly
     printf(".intel_syntax noprefix\n");
     printf(".global main\n");
     printf("main:\n");
-
-    // Function prologue:
-    printf("\tpush rbp\n");
-    printf("\tmov rbp, rsp\n");
     
-    // Calculate all the space we need for variables
-    Map *local_variables = new_map(NULL);
-    // For every token, if it's an identifier we haven't seen yet, it gets the address 8n bits away, 
-    // where n is the number of identifiers we already had
-    for(int i = 0; i < token_stream->len; i++) {
-        Token *current_token = (Token *)token_stream->data[i];
-        if(current_token->ty == TK_IDENT) {
-            if(map_get(local_variables, current_token->name) == NULL) {
-                map_put(local_variables, current_token->name, (void *)(long)(local_variables->keys->len * 8));
-            }
-        }
-    }
-    printf("\tsub rsp, %d\n", local_variables->keys->len * 8);
-    
-    // Generate every statement we've written
-    for(int i = 0; i < statements->len; i++) {
-        gen((Node *)statements->data[i], local_variables);
-        // Technically the value should already be in rax, but we should clear the stack anyway.
-        printf("\tpop rax\n");
-    }
+    Scope *scope = construct_scope_from_token_stream(token_stream);
 
-    // Function epilogue:
-    printf("\tmov rsp, rbp\n");
-    printf("\tpop rbp\n");
+    gen_scope(global_scope_node, &scope, false);
+
     printf("\tret\n");
     return 0;
 }

@@ -67,24 +67,28 @@ enum {
     ND_POST_INCREMENT,
     ND_POST_DECREMENT,
     ND_TERNARY_CONDITIONAL,     // cond ? a : b;
+    ND_SCOPE,
 };
 
 typedef struct Node {
-    int ty;         // Node type
+    int ty;                 // Node type
     int arity;
-    int val;        // Integer value if node is of type ND_NUM
-    char *name;      // Name of the identifier if type is ND_IDENT
+    int val;                // Integer value if node is of type ND_NUM
+    char *name;             // Name of the identifier if type is ND_IDENT
     struct Node *left;      // Left child. First arg in binary/ternary operations
     struct Node *middle;    // Middle child. First arg in unary operations. Second arg in ternary operations
     struct Node *right;     // Right child. Second arg in binary operations. Third arg in ternary operations
+    Vector *statements;     // Used for scope nodes
+    struct Node *parent;    // Used for scope node navigation
 } Node;
 
-Vector *parse_statements(Vector *tokens);
+Node *parse_code(Vector *tokens);
 
 typedef struct Scope {
     Vector *sub_scopes; 
     Map *variables_declared;
     struct Scope *parent_scope;
+    int scopes_traversed;
 } Scope;
 
 typedef struct {
@@ -96,7 +100,9 @@ Scope *new_scope(Scope *parent_scope);
 void declare_variable(Scope *target_scope, char *variable_name);
 VariableAddress *get_variable_location(Scope *current_scope, char *variable_name);
 Scope *construct_scope_from_token_stream(Vector *tokens);
+Scope *get_next_child_scope(Scope *current_scope);
 
-void gen(Node *statement_tree, Map *local_variables);
+// void gen(Node *statement_tree, Map *local_variables);
+void gen_scope(Node *node, Scope **local_scope, bool should_descend);
 
 void run_test();

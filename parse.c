@@ -56,24 +56,52 @@ Node *new_numeric_node(int val) {
     return node;
 }
 
+Node *new_scope_node() {
+    Node *node = malloc(sizeof(Node));
+    node->ty = ND_SCOPE;
+    node->arity = 0;
+    node->statements = new_vector();
+    return node;
+}
+
 // Prototypes for back-referencing/mutual recursion
 Node *statement(Vector *tokens, int *pos);
 Node *precedence_12(Vector *tokens, int *pos);
 
-Vector *parse_statements(Vector *tokens) {
+Node *parse_code(Vector *tokens) {
     int *pos = malloc(sizeof(int));
     *pos = 0;
 
-    // As long as we haven't hit the end of the file, we keep parsing new statements
-    // statement() should fail if it doesn't advance (i.e. find a semicolon), so this shouldn't infinitely loop
-    Vector *statements = new_vector();
+    // We start in the "global scope" node
+    Node *current_scope_node = new_scope_node();
+
+    // Then we go through each token until the end of the file
     Token *current_token = (Token *)tokens->data[*pos];
     while(current_token->ty != TK_EOF) {
-        vec_push(statements, statement(tokens, pos));
+        switch(current_token->ty) {
+            // When entering a new scope,
+            case '{': ;
+                Node *child_scope = new_scope_node();
+                // consider that scope one of our "statements"
+                vec_push(current_scope_node->statements, child_scope);
+                child_scope->parent = current_scope_node;
+                // but push future statements into this new scope
+                current_scope_node = child_scope;
+                *pos = *pos + 1;
+                break;
+            // When leaving a scope,
+            case '}':
+                // Just set future statements to go back in the scope above.
+                current_scope_node = current_scope_node->parent;
+                *pos = *pos + 1;
+                break;
+            default:
+                vec_push(current_scope_node->statements, statement(tokens, pos));
+        }
         current_token = (Token *)tokens->data[*pos];
     }
 
-    return statements;
+    return current_scope_node;
 }
 
 // assign -> <expr> <assign'> ;

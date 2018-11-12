@@ -7,6 +7,7 @@ Scope *new_scope(Scope *parent_scope) {
     scope->sub_scopes = new_vector();
     scope->variables_declared = new_map((void *)(long)-1);
     scope->parent_scope = parent_scope;
+    scope->scopes_traversed = 0;
 
     if(parent_scope != NULL) {
         vec_push(parent_scope->sub_scopes, (void *)scope);
@@ -32,7 +33,7 @@ void declare_variable(Scope *target_scope, char *variable_name) {
         return;
     } else {
         // TODO: Eventually add support for types larger than 8 bytes
-        map_put(target_scope->variables_declared, variable_name, (void *)(long)(target_scope->variables_declared->keys->len * 4));
+        map_put(target_scope->variables_declared, variable_name, (void *)(long)(target_scope->variables_declared->keys->len * 8));
     }
 }
 
@@ -84,4 +85,8 @@ Scope *construct_scope_from_token_stream(Vector *tokens) {
         exit(SCOPE_ERROR);
     }
     return current_scope;
+}
+
+Scope *get_next_child_scope(Scope *current_scope) {
+    return (Scope *)current_scope->sub_scopes->data[current_scope->scopes_traversed];
 }

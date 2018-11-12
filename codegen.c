@@ -1,13 +1,28 @@
 #include "yacc.h"
 
 int LABELS_GENERATED = 0;
+void gen(Node *statement_tree, Scope **local_scope);
+
+# ifdef DEBUG
+    # define comment(s, ...) printf("\t\t\t; "); printf(s, ##__VA_ARGS__); printf("\n")
+# else
+    # define comment(s, ...) printf("\n")
+# endif
 
 // Generate the code to put an lval's address on the stack.
-void gen_lval(Node *node, Map *local_variables) {
+void gen_lval(Node *node, Scope **local_scope) {
     if(node->ty == ND_IDENT) {
         printf("\tmov rax, rbp\n");
+
         // Look up the address of our local variables
-        printf("\tsub rax, %ld\n", (long)map_get(local_variables, node->name));
+        VariableAddress *referenced_var_add = get_variable_location(*local_scope, node->name);
+
+        // TODO: Climb up base pointers
+
+        printf("\tsub rax, %d\n", referenced_var_add->offset);
+
+        // TODO: Climb back down base pointers
+
         // Push the memory address of our variable onto the stack
         printf("\tpush rax\n");
     } else {
@@ -16,28 +31,61 @@ void gen_lval(Node *node, Map *local_variables) {
     }
 }
 
-void gen_unary(Node *statement_tree, Map *local_variables) {
+// We use the should_descend parameter because we don't want to descend the very first time we enter our scope
+void gen_scope(Node *node, Scope **local_scope, bool should_descend) {
+    // Go into our new scope
+    if(should_descend) {
+        *local_scope = get_next_child_scope(*local_scope);
+    }
+
+    // Function prologue:
+    printf("\tpush rbp\n");
+    printf("\tmov rbp, rsp\n");
+
+    printf("\tsub rsp, %d", (*local_scope)->variables_declared->keys->len * 8);
+    comment("Allocate %d variables to the stack", (*local_scope)->variables_declared->keys->len);
+
+    // Generate every statement in this scope
+    for(int i = 0; i < node->statements->len; i++) {
+        gen((Node *)node->statements->data[i], local_scope);
+        // Technically the resultant value should already be in rax, but we should clear the stack anyway.
+        printf("\tpop rax\n");
+    }
+
+    // Function epilogue:
+    printf("\tmov rsp, rbp\n");
+    printf("\tpop rbp\n");
+
+    if(should_descend) {
+        // Leave our scope
+        *local_scope = (*local_scope)->parent_scope;
+        // Mark that we've completed traversing this scope
+        (*local_scope)->scopes_traversed = (*local_scope)->scopes_traversed + 1;
+    }
+}
+
+void gen_unary(Node *statement_tree, Scope **local_scope) {
     switch(statement_tree->ty) {
         // Unary negation
         case ND_UNARY_NEG:
-            gen(statement_tree->middle, local_variables);
+            gen(statement_tree->middle, local_scope);
             printf("\tpop rax\n");
             printf("\tneg rax\n");
             printf("\tpush rax\n");
             break;
         // This case is sort of like a no-op, but it can have some side effects in compilation (like co-ercing an lvalue to an rvalue)
         case ND_UNARY_POS:
-            gen(statement_tree->middle, local_variables);
+            gen(statement_tree->middle, local_scope);
             break;
         case ND_UNARY_BIT_COMPLEMENT:
-            gen(statement_tree->middle, local_variables);
+            gen(statement_tree->middle, local_scope);
             printf("\tpop rax\n");
             printf("\tnot rax\n");
             printf("\tpush rax\n");
             break;
         // TODO: Find if there's a more canonical way to perform boolean !
         case ND_UNARY_BOOLEAN_NOT:
-            gen(statement_tree->middle, local_variables);
+            gen(statement_tree->middle, local_scope);
             printf("\tpop rax\n");
             printf("\tcmp rax, 0\n");
             printf("\tsete al\n");
@@ -45,7 +93,7 @@ void gen_unary(Node *statement_tree, Map *local_variables) {
             printf("\tpush rax\n");
             break;
         case ND_PRE_INCREMENT:
-            gen_lval(statement_tree->middle, local_variables);
+            gen_lval(statement_tree->middle, local_scope);
             // Load the address into rax
             printf("\tpop rax\n");
             // Then, get the value inside rax and increment it 
@@ -56,7 +104,7 @@ void gen_unary(Node *statement_tree, Map *local_variables) {
             printf("\tpush rdi\n");
             break;
         case ND_PRE_DECREMENT:
-            gen_lval(statement_tree->middle, local_variables);
+            gen_lval(statement_tree->middle, local_scope);
             printf("\tpop rax\n");
             // Then, get the value inside rax and decrement it 
             printf("\tmov rdi, [rax]\n");
@@ -66,7 +114,7 @@ void gen_unary(Node *statement_tree, Map *local_variables) {
             printf("\tpush rdi\n");
             break;
         case ND_POST_DECREMENT:
-            gen_lval(statement_tree->middle, local_variables);
+            gen_lval(statement_tree->middle, local_scope);
             // Keep the value in rax on the stack
             printf("\tpop rax\n");
             printf("\tpush [rax]\n");
@@ -77,7 +125,7 @@ void gen_unary(Node *statement_tree, Map *local_variables) {
             printf("\tmov [rax], rdi\n");
             break;
         case ND_POST_INCREMENT:
-            gen_lval(statement_tree->middle, local_variables);
+            gen_lval(statement_tree->middle, local_scope);
             // Keep the value in rax on the stack
             printf("\tpop rax\n");
             printf("\tpush [rax]\n");
@@ -93,13 +141,13 @@ void gen_unary(Node *statement_tree, Map *local_variables) {
     }
 } 
 
-void gen_binary(Node *statement_tree, Map *local_variables) {
+void gen_binary(Node *statement_tree, Scope **local_scope) {
     // We do something unique for assignments
     if(statement_tree->ty == '=') {
         // The left-hand side of any assignment must be an lval
-        gen_lval(statement_tree->left, local_variables);
+        gen_lval(statement_tree->left, local_scope);
         // Generate the value that we want to put into this lval
-        gen(statement_tree->right, local_variables);
+        gen(statement_tree->right, local_scope);
         printf("\tpop rdi\n");
         printf("\tpop rax\n");
         printf("\tmov [rax], rdi\n");
@@ -108,8 +156,8 @@ void gen_binary(Node *statement_tree, Map *local_variables) {
         return;
     }
 
-    gen(statement_tree->left, local_variables);
-    gen(statement_tree->right, local_variables);
+    gen(statement_tree->left, local_scope);
+    gen(statement_tree->right, local_scope);
     printf("\tpop rdi\n");
     printf("\tpop rax\n");
     switch(statement_tree->ty) {
@@ -168,22 +216,22 @@ void gen_binary(Node *statement_tree, Map *local_variables) {
     printf("\tpush rax\n");
 }
 
-void gen_ternary(Node *statement_tree, Map *local_variables) {
+void gen_ternary(Node *statement_tree, Scope **local_scope) {
     switch(statement_tree->ty) {
         // Ternary Operation
         case ND_TERNARY_CONDITIONAL: ;
             int current_label = LABELS_GENERATED++;
             // First, we write the code to compute the value of the boolean expression
-            gen(statement_tree->left, local_variables);
+            gen(statement_tree->left, local_scope);
             // Pop the value from the stack and jump to the false condition if 0
             printf("\tpop rax\n");
             printf("\ttest rax, rax\n");
             printf("\tjz cond_f_%d\n", current_label);
             // Assuming we haven't jumped, we're in the true branch
-            gen(statement_tree->middle, local_variables);
+            gen(statement_tree->middle, local_scope);
             printf("\tjmp cond_end_%d\n", current_label);
             printf("cond_f_%d:\n", current_label);
-            gen(statement_tree->right, local_variables);
+            gen(statement_tree->right, local_scope);
             printf("cond_end_%d:\n", current_label);
             // Our original assumption is that our recursive trees end by putting their value on the stack, so we don't need to do anything else.
             break;
@@ -193,26 +241,30 @@ void gen_ternary(Node *statement_tree, Map *local_variables) {
     }
 }
 
-void gen(Node *statement_tree, Map *local_variables) {
+void gen(Node *statement_tree, Scope **local_scope) {
     switch(statement_tree->arity) {
         case 3:
-            gen_ternary(statement_tree, local_variables);
+            gen_ternary(statement_tree, local_scope);
             break;
         case 2:
-            gen_binary(statement_tree, local_variables);
+            gen_binary(statement_tree, local_scope);
             break;
         case 1:
-            gen_unary(statement_tree, local_variables);
+            gen_unary(statement_tree, local_scope);
             break;
         default:
             switch(statement_tree->ty) {
+                case ND_SCOPE:
+                    gen_scope(statement_tree, local_scope, true);
+                    break;
                 case ND_NUM:
                     // For numbers, we only push the direct value on the stack
-                    printf("\tpush %d\n", statement_tree->val);
+                    printf("\tpush %d", statement_tree->val);
+                    comment("Place %d onto the stack", statement_tree->val);
                     break;
                 case ND_IDENT:
                     // Fetch the value in that address and store it on the stack
-                    gen_lval(statement_tree, local_variables);
+                    gen_lval(statement_tree, local_scope);
                     printf("\tpop rax\n");
                     printf("\tmov rax, [rax]\n");
                     printf("\tpush rax\n");
