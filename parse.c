@@ -69,80 +69,82 @@ Token *get_token(Vector *tokens, int *pos) {
 }
 
 // Prototypes for back-referencing/mutual recursion
-Node *statement(Vector *tokens, int *pos);
+Node *parse_statement(Vector *tokens, int *pos, Node **current_scope_node);
 Node *precedence_12(Vector *tokens, int *pos);
 
-// TODO: Refactor parsing.
 Node *parse_code(Vector *tokens) {
     int *pos = malloc(sizeof(int));
     *pos = 0;
 
-    // We start in the "global scope" node
-    Node *current_scope_node = new_scope_node();
-
-    // Then we go through each token until the end of the file
-    Token *current_token = get_token(tokens, pos);
-    while(current_token->ty != TK_EOF) {
-        switch(current_token->ty) {
-            // When entering a new scope,
-            case '{': ;
-                Node *child_scope = new_scope_node();
-                // consider that scope one of our "statements"
-                vec_push(current_scope_node->statements, child_scope);
-                child_scope->parent = current_scope_node;
-                // but push future statements into this new scope
-                current_scope_node = child_scope;
-                *pos = *pos + 1;
-                break;
-            // When leaving a scope,
-            case '}':
-                // Just set future statements to go back in the scope above.
-                current_scope_node = current_scope_node->parent;
-                *pos = *pos + 1;
-                break;
-            case TK_IF:
-                break;
-            default:
-                vec_push(current_scope_node->statements, statement(tokens, pos));
-        }
-        current_token = (Token *)tokens->data[*pos];
+    Node *global_scope = new_scope_node();
+    Node **current_scope_node = &global_scope;
+    Token *tk = get_token(tokens, pos);
+    while(tk->ty != TK_EOF) {
+        vec_push(global_scope->statements, parse_statement(tokens, pos, current_scope_node));
+        tk = get_token(tokens, pos);
     }
 
-    return current_scope_node;
+    return global_scope;
 }
 
-// assign -> <expr> <assign'> ;
-Node *statement(Vector *tokens, int *pos) {
-    Node *lhs = precedence_12(tokens, pos);
-    Token *current_token = (Token *)tokens->data[*pos];
+Node *parse_scope(Vector *tokens, int *pos, Node **current_scope_node) {
+    Node *new_scope = new_scope_node();
+    Token *current_token = get_token(tokens, pos);
+
+    while(current_token->ty != '}') {
+        vec_push(new_scope->statements, parse_statement(tokens, pos, &new_scope));
+        current_token = get_token(tokens, pos);
+    }
+
+    *pos = *pos + 1;
+    new_scope->parent = *current_scope_node;
+    return new_scope;
+}
+
+Node *parse_expression(Vector *tokens, int *pos) {
+    Node *leftmost_match = precedence_12(tokens, pos);
+    Token *current_token = get_token(tokens, pos);
 
     switch (current_token->ty) {
-        case ';':
-            // When we hit a semicolon, advance and return our completed statement
-            *pos = *pos + 1;
-            return lhs;
         case '=':
             // If we are doing an assignment, advance and try to evaluate the rest as a statement
             *pos = *pos + 1;
-            return binary_operation_node('=', lhs, statement(tokens, pos));
+            return binary_operation_node('=', leftmost_match, parse_expression(tokens, pos));
         default:
-            // Throw an error if we don't have a semicolon
-            return unexpected_token(*current_token, "You may be missing a semicolon.", __LINE__, *pos);
+            return leftmost_match;
     }
 }
 
-// The general structure for a precedence function is as follows:
-//      1. Try to parse a higher precedence (lower number) as the left-hand side
+Node *parse_statement(Vector *tokens, int *pos, Node **current_scope_node) {
+    Token *current_token = get_token(tokens, pos);
+    switch(current_token->ty) {
+        // A statement might be opening new scope
+        case '{':
+            *pos = *pos + 1;
+            return parse_scope(tokens, pos, current_scope_node);
+        // Otherwise, treat it as an expression separated by semicolons
+        default: ;
+            Node *expression = parse_expression(tokens, pos);
+            Token *next_token = get_token(tokens, pos);
+            if (next_token->ty != ';') {
+                unexpected_token(*next_token, "Expected semicolon.", __LINE__, *pos);
+            }
+            *pos = *pos + 1;
+            return expression;
+    }
+}
+
+// The general structure for a parsing function is as follows:
+//      1. Try to parse a higher precedence (lower number) term as the left-hand side
 //      2. If we find a token of this tier's precedence, create it as a node 
 //         and parse the right hand side as the same precedence tier
 //      3. If we don't find a token of this tier's precedence, just return the left-hand side.
-
 
 // Precedence 0:
 //  Parentheses, brackets, member selection via object name/pointer, 
 //  postfix increment/decrement
 Node *precedence_0(Vector *tokens, int *pos) {
-    Token *current_token = (Token *)tokens->data[*pos];
+    Token *current_token = get_token(tokens, pos);
     
     switch (current_token->ty){
         case TK_NUM:
@@ -169,7 +171,9 @@ Node *precedence_0(Vector *tokens, int *pos) {
 //  Prefix increment/decrement, unary plus/minus, logical negation, 
 //  bitwise complement, casts, dereference, address, sizeof
 Node *precedence_1(Vector *tokens, int *pos) {
-    Token *current_token = (Token *)tokens->data[*pos];
+    
+    // We do things a little differently here since we have some prefix operators to deal with.
+    Token *current_token = get_token(tokens, pos);
     switch (current_token->ty) {
         case TK_DECREMENT:
             *pos = *pos + 1;
@@ -191,7 +195,7 @@ Node *precedence_1(Vector *tokens, int *pos) {
             return unary_operation_node(ND_UNARY_BOOLEAN_NOT, precedence_1(tokens, pos));
         default: ;
             Node *next_node = precedence_0(tokens, pos);
-            Token *next_token = (Token *)tokens->data[*pos];
+            Token *next_token = get_token(tokens, pos);
             switch (next_token->ty) {
                 case TK_INCREMENT:
                     *pos = *pos + 1;
@@ -210,7 +214,7 @@ Node *precedence_1(Vector *tokens, int *pos) {
 Node *precedence_2(Vector *tokens, int *pos) {
     Node *lhs = precedence_1(tokens, pos);
 
-    Token *current_token = (Token *)tokens->data[*pos];
+    Token *current_token = get_token(tokens, pos);
     switch (current_token->ty) {
         case '*':
             *pos = *pos + 1;
@@ -231,7 +235,7 @@ Node *precedence_2(Vector *tokens, int *pos) {
 Node *precedence_3(Vector *tokens, int *pos) {
     Node *lhs = precedence_2(tokens, pos);
 
-    Token *current_token = (Token *)tokens->data[*pos];
+    Token *current_token = get_token(tokens, pos);
     switch (current_token->ty) {
         case '+':
             *pos = *pos + 1;
@@ -249,7 +253,7 @@ Node *precedence_3(Vector *tokens, int *pos) {
 Node *precedence_4(Vector *tokens, int *pos) {
     Node *lhs = precedence_3(tokens, pos);
 
-    Token *current_token = (Token *)tokens->data[*pos];
+    Token *current_token = get_token(tokens, pos);
     switch (current_token->ty) {
         default:
             return lhs;
@@ -261,7 +265,7 @@ Node *precedence_4(Vector *tokens, int *pos) {
 Node *precedence_5(Vector *tokens, int *pos) {
     Node *lhs = precedence_4(tokens, pos);
 
-    Token *current_token = (Token *)tokens->data[*pos];
+    Token *current_token = get_token(tokens, pos);
     switch (current_token->ty) {
         case TK_LEQUAL:
                 *pos = *pos + 1;
@@ -283,7 +287,7 @@ Node *precedence_5(Vector *tokens, int *pos) {
 Node *precedence_6(Vector *tokens, int *pos) {
     Node *lhs = precedence_5(tokens, pos);
 
-    Token *current_token = (Token *)tokens->data[*pos];
+    Token *current_token = get_token(tokens, pos);
     switch (current_token->ty) {
         case TK_EQUAL:
             *pos = *pos + 1;
@@ -301,7 +305,7 @@ Node *precedence_6(Vector *tokens, int *pos) {
 Node *precedence_7(Vector *tokens, int *pos) {    
     Node *lhs = precedence_6(tokens, pos);
 
-    Token *current_token = (Token *)tokens->data[*pos];
+    Token *current_token = get_token(tokens, pos);
     switch (current_token->ty) {
         default:
             return lhs;
@@ -313,7 +317,7 @@ Node *precedence_7(Vector *tokens, int *pos) {
 Node *precedence_8(Vector *tokens, int *pos) {    
     Node *lhs = precedence_7(tokens, pos);
 
-    Token *current_token = (Token *)tokens->data[*pos];
+    Token *current_token = get_token(tokens, pos);
     switch (current_token->ty) {
         default:
             return lhs;
@@ -325,7 +329,7 @@ Node *precedence_8(Vector *tokens, int *pos) {
 Node *precedence_9(Vector *tokens, int *pos) {    
     Node *lhs = precedence_8(tokens, pos);
 
-    Token *current_token = (Token *)tokens->data[*pos];
+    Token *current_token = get_token(tokens, pos);
     switch (current_token->ty) {
         default:
             return lhs;
@@ -337,7 +341,7 @@ Node *precedence_9(Vector *tokens, int *pos) {
 Node *precedence_10(Vector *tokens, int *pos) {
     Node *lhs = precedence_9(tokens, pos);
 
-    Token *current_token = (Token *)tokens->data[*pos];
+    Token *current_token = get_token(tokens, pos);
     switch (current_token->ty) {
         default:
             return lhs;
@@ -349,7 +353,7 @@ Node *precedence_10(Vector *tokens, int *pos) {
 Node *precedence_11(Vector *tokens, int *pos) {    
     Node *lhs = precedence_10(tokens, pos);
 
-    Token *current_token = (Token *)tokens->data[*pos];
+    Token *current_token = get_token(tokens, pos);
     switch (current_token->ty) {
         default:
             return lhs;
@@ -361,12 +365,12 @@ Node *precedence_11(Vector *tokens, int *pos) {
 Node *precedence_12(Vector *tokens, int *pos) {
     Node *lhs = precedence_11(tokens, pos);
 
-    Token *current_token = (Token *)tokens->data[*pos];
+    Token *current_token = get_token(tokens, pos);
     switch (current_token->ty) {
         case '?':
             *pos = *pos + 1;
-            Node *middle = precedence_12(tokens, pos);
-            Token *next_token = (Token *)tokens->data[*pos];
+            Node *middle = parse_expression(tokens, pos);
+            Token *next_token = get_token(tokens, pos);
             if (next_token->ty != ':') {
                 unexpected_token(*next_token, "Expected : in a ternary conditional!", __LINE__, *pos);
             }
