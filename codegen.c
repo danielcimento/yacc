@@ -1,5 +1,7 @@
 #include "yacc.h"
 
+int LABELS_GENERATED = 0;
+
 // Generate the code to put an lval's address on the stack.
 void gen_lval(Node *node, Map *local_variables) {
     if(node->ty == ND_IDENT) {
@@ -14,31 +16,8 @@ void gen_lval(Node *node, Map *local_variables) {
     }
 }
 
-// Generate assembly code from an expression tree using a recursive approach.
-void gen(Node *statement_tree, Map *local_variables) {
+void gen_unary(Node *statement_tree, Map *local_variables) {
     switch(statement_tree->ty) {
-        case ND_NUM:
-            // For numbers, we only push the direct value on the stack
-            printf("\tpush %d\n", statement_tree->val);
-            break;
-        case ND_IDENT:
-            // Fetch the value in that address and store it on the stack
-            gen_lval(statement_tree, local_variables);
-            printf("\tpop rax\n");
-            printf("\tmov rax, [rax]\n");
-            printf("\tpush rax\n");
-            break;
-        case '=':
-            // The left-hand side of any assignment must be an lval
-            gen_lval(statement_tree->left, local_variables);
-            // Generate the value that we want to put into this lval
-            gen(statement_tree->right, local_variables);
-            printf("\tpop rdi\n");
-            printf("\tpop rax\n");
-            printf("\tmov [rax], rdi\n");
-            // By storing our value back on the stack we can chain assignments
-            printf("\tpush rdi\n");
-            break;
         // Unary negation
         case ND_UNARY_NEG:
             gen(statement_tree->middle, local_variables);
@@ -108,65 +87,139 @@ void gen(Node *statement_tree, Map *local_variables) {
             printf("\tinc rdi\n");
             printf("\tmov [rax], rdi\n");
             break;
-        // Default recursive case: binary operations
         default:
+            fprintf(stderr, "Unknown unary operation: %d\n", statement_tree->ty);
+            exit(CODEGEN_ERROR);
+    }
+} 
+
+void gen_binary(Node *statement_tree, Map *local_variables) {
+    // We do something unique for assignments
+    if(statement_tree->ty == '=') {
+        // The left-hand side of any assignment must be an lval
+        gen_lval(statement_tree->left, local_variables);
+        // Generate the value that we want to put into this lval
+        gen(statement_tree->right, local_variables);
+        printf("\tpop rdi\n");
+        printf("\tpop rax\n");
+        printf("\tmov [rax], rdi\n");
+        // By storing our value back on the stack we can chain assignments
+        printf("\tpush rdi\n");
+        return;
+    }
+
+    gen(statement_tree->left, local_variables);
+    gen(statement_tree->right, local_variables);
+    printf("\tpop rdi\n");
+    printf("\tpop rax\n");
+    switch(statement_tree->ty) {
+        case '*':
+            printf("\tmul rdi\n");
+            break;
+        case '/':
+            printf("\tmov rdx, 0\n");
+            printf("\tdiv rdi\n");
+            break;
+        case '%':
+            printf("\tmov rdx, 0\n");
+            printf("\tdiv rdi\n");
+            printf("\tmovzb rax, dl\n");
+            break;
+        case '+':
+            printf("\tadd rax, rdi\n");
+            break;
+        case '-':
+            printf("\tsub rax, rdi\n");
+            break;
+        case ND_EQUAL:
+            printf("\tcmp rdi, rax\n");
+            printf("\tsete al\n");
+            printf("\tmovzb rax, al\n");
+            break;
+        case ND_NEQUAL:
+            printf("\tcmp rdi, rax\n");
+            printf("\tsetne al\n");
+            printf("\tmovzb rax, al\n");
+            break;
+        case ND_GEQUAL:
+            printf("\tcmp rax, rdi\n");
+            printf("\tsetge al\n");
+            printf("\tmovzb rax, al\n");
+            break;
+        case ND_LEQUAL:
+            printf("\tcmp rax, rdi\n");
+            printf("\tsetle al\n");
+            printf("\tmovzb rax, al\n");
+            break;
+        case '>':
+            printf("\tcmp rax, rdi\n");
+            printf("\tsetg al\n");
+            printf("\tmovzb rax, al\n");
+            break;
+        case '<':
+            printf("\tcmp rax, rdi\n");
+            printf("\tsetl al\n");
+            printf("\tmovzb rax, al\n");
+            break;
+        default:
+            fprintf(stderr, "Unknown binary operation: %d\n", statement_tree->ty);
+            exit(CODEGEN_ERROR);
+    }
+    printf("\tpush rax\n");
+}
+
+void gen_ternary(Node *statement_tree, Map *local_variables) {
+    switch(statement_tree->ty) {
+        // Ternary Operation
+        case ND_TERNARY_CONDITIONAL: ;
+            int current_label = LABELS_GENERATED++;
+            // First, we write the code to compute the value of the boolean expression
             gen(statement_tree->left, local_variables);
-            gen(statement_tree->right, local_variables);
-            printf("\tpop rdi\n");
+            // Pop the value from the stack and jump to the false condition if 0
             printf("\tpop rax\n");
+            printf("\ttest rax, rax\n");
+            printf("\tjz cond_f_%d\n", current_label);
+            // Assuming we haven't jumped, we're in the true branch
+            gen(statement_tree->middle, local_variables);
+            printf("\tjmp cond_end_%d\n", current_label);
+            printf("cond_f_%d:\n", current_label);
+            gen(statement_tree->right, local_variables);
+            printf("cond_end_%d:\n", current_label);
+            // Our original assumption is that our recursive trees end by putting their value on the stack, so we don't need to do anything else.
+            break;
+        default: 
+            fprintf(stderr, "Unknown ternary operation: %d\n", statement_tree->ty);
+            exit(CODEGEN_ERROR);
+    }
+}
+
+void gen(Node *statement_tree, Map *local_variables) {
+    switch(statement_tree->arity) {
+        case 3:
+            gen_ternary(statement_tree, local_variables);
+            break;
+        case 2:
+            gen_binary(statement_tree, local_variables);
+            break;
+        case 1:
+            gen_unary(statement_tree, local_variables);
+            break;
+        default:
             switch(statement_tree->ty) {
-                case '*':
-                    printf("\tmul rdi\n");
+                case ND_NUM:
+                    // For numbers, we only push the direct value on the stack
+                    printf("\tpush %d\n", statement_tree->val);
                     break;
-                case '/':
-                    printf("\tmov rdx, 0\n");
-                    printf("\tdiv rdi\n");
-                    break;
-                case '%':
-                    printf("\tmov rdx, 0\n");
-                    printf("\tdiv rdi\n");
-                    printf("\tmovzb rax, dl\n");
-                    break;
-                case '+':
-                    printf("\tadd rax, rdi\n");
-                    break;
-                case '-':
-                    printf("\tsub rax, rdi\n");
-                    break;
-                case ND_EQUAL:
-                    printf("\tcmp rdi, rax\n");
-                    printf("\tsete al\n");
-                    printf("\tmovzb rax, al\n");
-                    break;
-                case ND_NEQUAL:
-                    printf("\tcmp rdi, rax\n");
-                    printf("\tsetne al\n");
-                    printf("\tmovzb rax, al\n");
-                    break;
-                case ND_GEQUAL:
-                    printf("\tcmp rax, rdi\n");
-                    printf("\tsetge al\n");
-                    printf("\tmovzb rax, al\n");
-                    break;
-                case ND_LEQUAL:
-                    printf("\tcmp rax, rdi\n");
-                    printf("\tsetle al\n");
-                    printf("\tmovzb rax, al\n");
-                    break;
-                case '>':
-                    printf("\tcmp rax, rdi\n");
-                    printf("\tsetg al\n");
-                    printf("\tmovzb rax, al\n");
-                    break;
-                case '<':
-                    printf("\tcmp rax, rdi\n");
-                    printf("\tsetl al\n");
-                    printf("\tmovzb rax, al\n");
+                case ND_IDENT:
+                    // Fetch the value in that address and store it on the stack
+                    gen_lval(statement_tree, local_variables);
+                    printf("\tpop rax\n");
+                    printf("\tmov rax, [rax]\n");
+                    printf("\tpush rax\n");
                     break;
                 default:
-                    fprintf(stderr, "Unknown operator %c (%d)\n", statement_tree->ty, statement_tree->ty);
+                    fprintf(stderr, "Unexpected arity: %d\n", statement_tree->arity);
                     exit(CODEGEN_ERROR);
             }
-            printf("\tpush rax\n");
-    }   
+    } 
 }

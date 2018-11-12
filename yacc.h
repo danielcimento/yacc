@@ -63,10 +63,12 @@ enum {
     ND_PRE_DECREMENT,
     ND_POST_INCREMENT,
     ND_POST_DECREMENT,
+    ND_TERNARY_CONDITIONAL,     // cond ? a : b;
 };
 
 typedef struct Node {
     int ty;         // Node type
+    int arity;
     int val;        // Integer value if node is of type ND_NUM
     char *name;      // Name of the identifier if type is ND_IDENT
     struct Node *left;      // Left child. First arg in binary/ternary operations

@@ -13,9 +13,20 @@ Node *unexpected_token(Token token, char *hint, int line_num, int pos) {
     return NULL;
 }
 
+Node *ternary_operation_node(int op, Node *left, Node *middle, Node *right) {
+    Node *node = malloc(sizeof(Node));
+    node->ty = op;
+    node->arity = 3;
+    node->left = left;
+    node->middle = middle;
+    node->right = right;
+    return node;
+}
+
 Node *binary_operation_node(int op, Node *left, Node *right) {
     Node *node = malloc(sizeof(Node));
     node->ty = op;
+    node->arity = 2;
     node->left = left;
     node->right = right;
     return node;
@@ -24,6 +35,7 @@ Node *binary_operation_node(int op, Node *left, Node *right) {
 Node *unary_operation_node(int op, Node *child) {
     Node *node = malloc(sizeof(Node));
     node->ty = op;
+    node->arity = 1;
     node->middle = child;
     return node;
 }
@@ -31,6 +43,7 @@ Node *unary_operation_node(int op, Node *child) {
 Node *new_identifier_node(char *name) {
     Node *node = malloc(sizeof(Node));
     node->ty = ND_IDENT;
+    node->arity = 0;
     node->name = name;
     return node;
 }
@@ -38,6 +51,7 @@ Node *new_identifier_node(char *name) {
 Node *new_numeric_node(int val) {
     Node *node = malloc(sizeof(Node));
     node->ty = ND_NUM;
+    node->arity = 0;
     node->val = val;
     return node;
 }
@@ -314,6 +328,15 @@ Node *precedence_12(Vector *tokens, int *pos) {
 
     Token *current_token = (Token *)tokens->data[*pos];
     switch (current_token->ty) {
+        case '?':
+            *pos = *pos + 1;
+            Node *middle = precedence_12(tokens, pos);
+            Token *next_token = (Token *)tokens->data[*pos];
+            if (next_token->ty != ':') {
+                unexpected_token(*next_token, "Expected : in a ternary conditional!", __LINE__, *pos);
+            }
+            *pos = *pos + 1;
+            return ternary_operation_node(ND_TERNARY_CONDITIONAL, lhs, middle, precedence_12(tokens, pos));
         default:
             return lhs;
     }

@@ -85,4 +85,11 @@ try 2 "i = 3; --i;"
 try 3 "i = 3; i--;"
 try 2 "i = 3; i--; i;"
 
+# Case 12: Ternary conditionals
+try 3 "10 ? 3: 5;"
+try 5 "0 ? 3 : 5;"
+try 6 "3 ? 5 ? 6 : 4 : 2;"
+try 4 "3 ? 0 ? 6 : 4 : 2;"
+try 2 "foo = 10 ? 3 : 5; --foo;"
+
 echo "OK"

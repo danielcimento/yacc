@@ -89,6 +89,8 @@ Vector *tokenize(char *p) {
             case ';':
             case '~':
             case '%':
+            case ':':
+            case '?':
                 vec_push(tokens, new_token(*p, p, 0, NULL));
                 p++;
                 continue;
