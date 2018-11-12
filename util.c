@@ -16,10 +16,11 @@ void vec_push(Vector *vec, void *elem) {
     vec->data[vec->len++] = elem;
 }
 
-Map *new_map() {
+Map *new_map(void *default_value) {
     Map *map = malloc(sizeof(Map));
     map->keys = new_vector();
     map->vals = new_vector();
+    map->default_value = default_value;
     return map;
 }
 
@@ -34,5 +35,5 @@ void *map_get(Map *map, char *key) {
             return map->vals->data[i];
         }
     }
-    return NULL;
+    return map->default_value;
 }

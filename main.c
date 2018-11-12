@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
     printf("\tmov rbp, rsp\n");
     
     // Calculate all the space we need for variables
-    Map *local_variables = new_map();
+    Map *local_variables = new_map(NULL);
     // For every token, if it's an identifier we haven't seen yet, it gets the address 8n bits away, 
     // where n is the number of identifiers we already had
     for(int i = 0; i < token_stream->len; i++) {

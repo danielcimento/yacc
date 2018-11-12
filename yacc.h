@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,9 +16,10 @@ void vec_push(Vector *vec, void *elem);
 typedef struct {
     Vector *keys;
     Vector *vals;
+    void *default_value;
 } Map;
 
-Map *new_map();
+Map *new_map(void *default_value);
 void map_put(Map *map, char *key, void *val);
 void *map_get(Map *map, char *key);
 
@@ -77,6 +79,15 @@ typedef struct Node {
 } Node;
 
 Vector *parse_statements(Vector *tokens);
+
+typedef struct Scope {
+    Vector *sub_scopes; 
+    Map *variables_declared;
+    struct Scope *parent_scope;
+} Scope;
+
+Scope *new_scope(Scope *parent_scope);
+void declare_variable(Scope *target_scope, char *variable_name);
 
 void gen(Node *statement_tree, Map *local_variables);
 
