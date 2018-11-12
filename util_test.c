@@ -41,11 +41,10 @@ void test_map() {
 
 void test_scope() {
     Scope *top_level_scope = new_scope(NULL);
-    declare_variable(top_level_scope, "foo");
     declare_variable(top_level_scope, "bar");
 
     // We should expect to retrieve variables that we've declared
-    expect(__LINE__, 2, (long)top_level_scope->variables_declared->keys->len);
+    expect(__LINE__, 1, (long)top_level_scope->variables_declared->keys->len);
 
     VariableAddress *bar_location = get_variable_location(top_level_scope, "bar");
     expect(__LINE__, 8, bar_location->offset);
@@ -58,7 +57,6 @@ void test_scope() {
     expect(__LINE__, 2, top_level_scope->sub_scopes->len);
 
     // We should expect to not have variables declared again in children scopes
-    declare_variable(child_scope, "foo");
     declare_variable(child_scope, "bar");
     VariableAddress *bar_from_child_scope = get_variable_location(child_scope, "bar");
     expect(__LINE__, 1, bar_from_child_scope->scopes_up);
@@ -66,9 +64,7 @@ void test_scope() {
     expect(__LINE__, -1, (long)map_get(child_scope->variables_declared, "bar"));
 
     // We should expect two scopes at equal levels on the scope hierarchy to both be allowed to have the same variables
-    declare_variable(child_scope, "buzz");
     declare_variable(child_scope, "bazz");
-    declare_variable(second_child_scope, "buzz");
     declare_variable(second_child_scope, "bazz");
     VariableAddress *bazz_location = get_variable_location(child_scope, "bazz");
     VariableAddress *bazz_location2 = get_variable_location(child_scope, "bazz");
@@ -87,19 +83,19 @@ void test_scope_resolution() {
     expect(__LINE__, 2, generated_scope->sub_scopes->len);
     VariableAddress *bar_location = get_variable_location(generated_scope, "bar");
     expect(__LINE__, 0, bar_location->scopes_up);
-    expect(__LINE__, 8, bar_location->offset);
+    expect(__LINE__, 16, bar_location->offset);
 
     Scope *sub_scope = (Scope *)generated_scope->sub_scopes->data[0];
     expect(__LINE__, 1, sub_scope->sub_scopes->len);
     VariableAddress *bar_location2 = get_variable_location(sub_scope, "bar");
     expect(__LINE__, 1, bar_location2->scopes_up);
-    expect(__LINE__, 8, bar_location2->offset);
+    expect(__LINE__, 16, bar_location2->offset);
 
     Scope *sub_sub_scope = (Scope *)sub_scope->sub_scopes->data[0];
     expect(__LINE__, 0, sub_sub_scope->sub_scopes->len);
     VariableAddress *bar_location3 = get_variable_location(sub_sub_scope, "bar");
     expect(__LINE__, 2, bar_location3->scopes_up);
-    expect(__LINE__, 8, bar_location3->offset);
+    expect(__LINE__, 16, bar_location3->offset);
 }
 
 void run_test() {

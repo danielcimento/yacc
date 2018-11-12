@@ -17,11 +17,11 @@ void gen_lval(Node *node, Scope **local_scope) {
         // Look up the address of our local variables
         VariableAddress *referenced_var_add = get_variable_location(*local_scope, node->name);
 
-        // TODO: Climb up base pointers
+        for(int i = 0; i < referenced_var_add->scopes_up; i ++) {
+            printf("\tmov rax, [rax]\n"); // Climb up one base pointer
+        }
 
         printf("\tsub rax, %d\n", referenced_var_add->offset);
-
-        // TODO: Climb back down base pointers
 
         // Push the memory address of our variable onto the stack
         printf("\tpush rax\n");
@@ -47,9 +47,10 @@ void gen_scope(Node *node, Scope **local_scope, bool should_descend) {
 
     // Generate every statement in this scope
     for(int i = 0; i < node->statements->len; i++) {
-        gen((Node *)node->statements->data[i], local_scope);
-        // Technically the resultant value should already be in rax, but we should clear the stack anyway.
-        printf("\tpop rax\n");
+        Node *current_node = (Node *)node->statements->data[i];
+        gen(current_node, local_scope);
+        // Before we can return, we have to keep our stack balanced. But we can't pop after scope completion.
+        if(current_node->ty != ND_SCOPE) printf("\tpop rax\n");
     }
 
     // Function epilogue:

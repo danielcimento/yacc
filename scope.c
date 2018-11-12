@@ -33,7 +33,7 @@ void declare_variable(Scope *target_scope, char *variable_name) {
         return;
     } else {
         // TODO: Eventually add support for types larger than 8 bytes
-        map_put(target_scope->variables_declared, variable_name, (void *)(long)(target_scope->variables_declared->keys->len * 8));
+        map_put(target_scope->variables_declared, variable_name, (void *)(long)((target_scope->variables_declared->keys->len + 1) * 8));
     }
 }
 

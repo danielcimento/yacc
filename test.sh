@@ -92,4 +92,8 @@ try 6 "3 ? 5 ? 6 : 4 : 2;"
 try 4 "3 ? 0 ? 6 : 4 : 2;"
 try 2 "foo = 10 ? 3 : 5; --foo;"
 
+# Case 13: Scopes
+try 12 "a = 1; {b = 2; a = a + b;} c = 4; a * c;"
+try 15 "a = 3; { b = 2; { c = 3; { (c + b) * a; } } }"
+
 echo "OK"
