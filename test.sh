@@ -77,4 +77,12 @@ try 3 "8 % 5;"
 try 0 "3 % 3;"
 try 0 "6 % 3;"
 
+# Case 11: Increment/Decrement
+try 3 "i = 2; ++i;"
+try 2 "i = 2; i++;"
+try 3 "i = 2; i++; i;"
+try 2 "i = 3; --i;"
+try 3 "i = 3; i--;"
+try 2 "i = 3; i--; i;"
+
 echo "OK"

@@ -122,6 +122,12 @@ Node *precedence_0(Vector *tokens, int *pos) {
 Node *precedence_1(Vector *tokens, int *pos) {
     Token *current_token = (Token *)tokens->data[*pos];
     switch (current_token->ty) {
+        case TK_DECREMENT:
+            *pos = *pos + 1;
+            return unary_operation_node(ND_PRE_DECREMENT, precedence_1(tokens, pos));
+        case TK_INCREMENT:
+            *pos = *pos + 1;
+            return unary_operation_node(ND_PRE_INCREMENT, precedence_1(tokens, pos));
         case '-':
             *pos = *pos + 1;
             return unary_operation_node(ND_UNARY_NEG, precedence_1(tokens, pos));
@@ -134,8 +140,19 @@ Node *precedence_1(Vector *tokens, int *pos) {
         case '!':
             *pos = *pos + 1;
             return unary_operation_node(ND_UNARY_BOOLEAN_NOT, precedence_1(tokens, pos));
-        default:
-            return precedence_0(tokens, pos);
+        default: ;
+            Node *next_node = precedence_0(tokens, pos);
+            Token *next_token = (Token *)tokens->data[*pos];
+            switch (next_token->ty) {
+                case TK_INCREMENT:
+                    *pos = *pos + 1;
+                    return unary_operation_node(ND_POST_INCREMENT, next_node);
+                case TK_DECREMENT:
+                    *pos = *pos + 1;
+                    return unary_operation_node(ND_POST_DECREMENT, next_node);
+                default:
+                    return next_node;
+            }
     }
 }
 

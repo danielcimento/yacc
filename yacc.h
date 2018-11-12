@@ -35,6 +35,8 @@ enum {
     TK_NEQUAL,      // !=
     TK_GEQUAL,      // >=
     TK_LEQUAL,      // <=
+    TK_INCREMENT,   // ++
+    TK_DECREMENT,   // --
 };
 
 typedef struct {
@@ -57,6 +59,10 @@ enum {
     ND_UNARY_POS,               // Unary +
     ND_UNARY_BIT_COMPLEMENT,    // ~
     ND_UNARY_BOOLEAN_NOT,       // !
+    ND_PRE_INCREMENT,
+    ND_PRE_DECREMENT,
+    ND_POST_INCREMENT,
+    ND_POST_DECREMENT,
 };
 
 typedef struct Node {

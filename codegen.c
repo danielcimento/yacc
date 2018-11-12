@@ -8,6 +8,9 @@ void gen_lval(Node *node, Map *local_variables) {
         printf("\tsub rax, %ld\n", (long)map_get(local_variables, node->name));
         // Push the memory address of our variable onto the stack
         printf("\tpush rax\n");
+    } else {
+        fprintf(stderr, "Expected an lval but found %d\n", node->ty);
+        exit(CODEGEN_ERROR);
     }
 }
 
@@ -61,6 +64,49 @@ void gen(Node *statement_tree, Map *local_variables) {
             printf("\tsete al\n");
             printf("\tmovzb rax, al\n");
             printf("\tpush rax\n");
+            break;
+        case ND_PRE_INCREMENT:
+            gen_lval(statement_tree->middle, local_variables);
+            // Load the address into rax
+            printf("\tpop rax\n");
+            // Then, get the value inside rax and increment it 
+            printf("\tmov rdi, [rax]\n");
+            printf("\tinc rdi\n");
+            // Store it back into rax's address and put the new value on the stack
+            printf("\tmov [rax], rdi\n");
+            printf("\tpush rdi\n");
+            break;
+        case ND_PRE_DECREMENT:
+            gen_lval(statement_tree->middle, local_variables);
+            printf("\tpop rax\n");
+            // Then, get the value inside rax and decrement it 
+            printf("\tmov rdi, [rax]\n");
+            printf("\tdec rdi\n");
+            // Store it back into rax's address and put the new value on the stack
+            printf("\tmov [rax], rdi\n");
+            printf("\tpush rdi\n");
+            break;
+        case ND_POST_DECREMENT:
+            gen_lval(statement_tree->middle, local_variables);
+            // Keep the value in rax on the stack
+            printf("\tpop rax\n");
+            printf("\tpush [rax]\n");
+            // Load the value in rax
+            printf("\tmov rdi, [rax]\n");
+            // Decrement the value and store it in [rax] (value on stack is unchanged)
+            printf("\tdec rdi\n");
+            printf("\tmov [rax], rdi\n");
+            break;
+        case ND_POST_INCREMENT:
+            gen_lval(statement_tree->middle, local_variables);
+            // Keep the value in rax on the stack
+            printf("\tpop rax\n");
+            printf("\tpush [rax]\n");
+            // Load the value in rax
+            printf("\tmov rdi, [rax]\n");
+            // Increment the value and store it in [rax] (value on stack is unchanged)
+            printf("\tinc rdi\n");
+            printf("\tmov [rax], rdi\n");
             break;
         // Default recursive case: binary operations
         default:

@@ -71,7 +71,17 @@ Vector *tokenize(char *p) {
                     continue;
                 }
             case '-':
+                if(*(p + 1) == '-') {
+                    vec_push(tokens, new_token(TK_DECREMENT, p, 0, NULL));
+                    p += 2;
+                    continue;
+                }
             case '+':
+                if(*(p + 1) == '+') {
+                    vec_push(tokens, new_token(TK_INCREMENT, p, 0, NULL));
+                    p += 2;
+                    continue;
+                }
             case '/':
             case '*':
             case ')':
