@@ -40,6 +40,10 @@ enum {
     TK_LEQUAL,      // <=
     TK_INCREMENT,   // ++
     TK_DECREMENT,   // --
+    TK_IF,
+    TK_ELSE,
+    TK_WHILE,
+    TK_FOR,
 };
 
 typedef struct {

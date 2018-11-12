@@ -14,9 +14,19 @@ bool is_identifier_character(char c) {
     return isalpha(c) || isdigit(c) || c == '_';
 }
 
+Map *get_reserved_words() {
+    Map *reserved_word_map = new_map((void *)(long)-1);
+    map_put(reserved_word_map, "if", (void *)(long)TK_IF);
+    map_put(reserved_word_map, "else", (void *)(long)TK_ELSE);
+    map_put(reserved_word_map, "for", (void *)(long)TK_FOR);
+
+    return reserved_word_map;
+}
+
 // Divides the string `p` into tokens and stores them in a token stream
 Vector *tokenize(char *p) {
     Vector *tokens = new_vector();
+    Map *reserved_word_map = get_reserved_words();
 
     while (*p) {
         // Skip whitespace
@@ -33,15 +43,23 @@ Vector *tokenize(char *p) {
             continue;
         }
 
-        // Allow recognizing single lowercase characters as identifiers
+        // Check for words (for reserved keywords and identifiers)
         if(isalpha(*p) || *p == '_') {
+            // String parsing
             int i = 0;
             char *identifier_name = malloc(128 * sizeof(char));
             while(is_identifier_character(*p)) {
                 identifier_name[i++] = *(p++);
             }
             identifier_name[i] = 0;
-            vec_push(tokens, new_token(TK_IDENT, p, *p, identifier_name));
+
+            // Look up any potential reserved word this maps to, and if it doesn't set it as an identifier
+            int word_code = (long)map_get(reserved_word_map, identifier_name);
+            if(word_code != -1) {
+                vec_push(tokens, new_token(word_code, p, 0, NULL));
+            } else {
+                vec_push(tokens, new_token(TK_IDENT, p, 0, identifier_name));
+            }
             continue;
         }
 

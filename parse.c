@@ -64,10 +64,15 @@ Node *new_scope_node() {
     return node;
 }
 
+Token *get_token(Vector *tokens, int *pos) {
+    return (Token *)tokens->data[*pos];
+}
+
 // Prototypes for back-referencing/mutual recursion
 Node *statement(Vector *tokens, int *pos);
 Node *precedence_12(Vector *tokens, int *pos);
 
+// TODO: Refactor parsing.
 Node *parse_code(Vector *tokens) {
     int *pos = malloc(sizeof(int));
     *pos = 0;
@@ -76,7 +81,7 @@ Node *parse_code(Vector *tokens) {
     Node *current_scope_node = new_scope_node();
 
     // Then we go through each token until the end of the file
-    Token *current_token = (Token *)tokens->data[*pos];
+    Token *current_token = get_token(tokens, pos);
     while(current_token->ty != TK_EOF) {
         switch(current_token->ty) {
             // When entering a new scope,
@@ -94,6 +99,8 @@ Node *parse_code(Vector *tokens) {
                 // Just set future statements to go back in the scope above.
                 current_scope_node = current_scope_node->parent;
                 *pos = *pos + 1;
+                break;
+            case TK_IF:
                 break;
             default:
                 vec_push(current_scope_node->statements, statement(tokens, pos));
