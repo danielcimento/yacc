@@ -43,6 +43,25 @@ void gen(Node *statement_tree, Map *local_variables) {
             printf("\tneg rax\n");
             printf("\tpush rax\n");
             break;
+        // This case is sort of like a no-op, but it can have some side effects in compilation (like co-ercing an lvalue to an rvalue)
+        case ND_UNARY_POS:
+            gen(statement_tree->middle, local_variables);
+            break;
+        case ND_UNARY_BIT_COMPLEMENT:
+            gen(statement_tree->middle, local_variables);
+            printf("\tpop rax\n");
+            printf("\tnot rax\n");
+            printf("\tpush rax\n");
+            break;
+        // TODO: Find if there's a more canonical way to perform boolean !
+        case ND_UNARY_BOOLEAN_NOT:
+            gen(statement_tree->middle, local_variables);
+            printf("\tpop rax\n");
+            printf("\tcmp rax, 0\n");
+            printf("\tsete al\n");
+            printf("\tmovzb rax, al\n");
+            printf("\tpush rax\n");
+            break;
         // Default recursive case: binary operations
         default:
             gen(statement_tree->left, local_variables);

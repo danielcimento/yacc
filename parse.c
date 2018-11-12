@@ -125,6 +125,15 @@ Node *precedence_1(Vector *tokens, int *pos) {
         case '-':
             *pos = *pos + 1;
             return unary_operation_node(ND_UNARY_NEG, precedence_1(tokens, pos));
+        case '+':
+            *pos = *pos + 1;
+            return unary_operation_node(ND_UNARY_POS, precedence_1(tokens, pos));
+        case '~':
+            *pos = *pos + 1;
+            return unary_operation_node(ND_UNARY_BIT_COMPLEMENT, precedence_1(tokens, pos));
+        case '!':
+            *pos = *pos + 1;
+            return unary_operation_node(ND_UNARY_BOOLEAN_NOT, precedence_1(tokens, pos));
         default:
             return precedence_0(tokens, pos);
     }

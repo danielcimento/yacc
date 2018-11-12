@@ -47,13 +47,16 @@ typedef struct {
 Vector *tokenize(char *p);
 
 enum {
-    ND_NUM = 256,   // Integer node type
-    ND_IDENT,       // Identifier node type
-    ND_EQUAL,       // Equality operator node type
-    ND_NEQUAL,      // Not equals operator node type
-    ND_GEQUAL,      // >=
-    ND_LEQUAL,      // <=
-    ND_UNARY_NEG,   // Unary -
+    ND_NUM = 256,               // Integer node type
+    ND_IDENT,                   // Identifier node type
+    ND_EQUAL,                   // Equality operator node type
+    ND_NEQUAL,                  // Not equals operator node type
+    ND_GEQUAL,                  // >=
+    ND_LEQUAL,                  // <=
+    ND_UNARY_NEG,               // Unary -
+    ND_UNARY_POS,               // Unary +
+    ND_UNARY_BIT_COMPLEMENT,    // ~
+    ND_UNARY_BOOLEAN_NOT,       // !
 };
 
 typedef struct Node {

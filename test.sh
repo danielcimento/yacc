@@ -64,4 +64,12 @@ try 0 "12 > 12;"
 try 1 "10 <= 10;"
 try 0 "10 < 10;"
 
+# Case 9: Unary operators
+try 5 "3 - -2;"
+try 6 "+2 + +4;"
+try 255 "~0;"
+try 0 "~255;"
+try 0 "foo = 5; !foo;"
+# try 1 "foo = 12; foo = foo - foo; !foo;"
+
 echo "OK"
