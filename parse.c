@@ -168,6 +168,15 @@ Node *parse_statement(Vector *tokens, int *pos, Node **current_scope_node) {
             expect_token(tokens, pos, __LINE__, ')');
             loop_body = parse_statement(tokens, pos, current_scope_node);
             return binary_operation_node(ND_WHILE, cond_expression, loop_body);
+        case TK_DO:
+            *pos = *pos + 1;
+            loop_body = parse_statement(tokens, pos, current_scope_node);
+            expect_token(tokens, pos, __LINE__, TK_WHILE);
+            expect_token(tokens, pos, __LINE__, '(');
+            cond_expression = parse_expression(tokens, pos);
+            expect_token(tokens, pos, __LINE__, ')');
+            expect_token(tokens, pos, __LINE__, ';');
+            return binary_operation_node(ND_DO, loop_body, cond_expression);
         // Otherwise, treat it as an expression separated by semicolons
         default: ;
             Node *expression = parse_expression(tokens, pos);

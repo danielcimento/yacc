@@ -53,6 +53,7 @@ void gen_scope(Node *node, Scope **local_scope) {
             case ND_SCOPE:
             case ND_WHILE:
             case ND_IF:
+            case ND_DO:
                 break;
             default:
                 printf("\tpop rax\n");
@@ -176,6 +177,18 @@ void gen_binary(Node *statement_tree, Scope **local_scope) {
             // After we finish the loop body, jump back to the condition
             printf("\tjmp wlb_%d\n", current_label);
             printf("wle_%d:\n", current_label);
+            return;
+        case ND_DO:
+            current_label = LABELS_GENERATED++;
+            printf("do_while_%d:\n", current_label);
+            // Execute the loop body
+            gen(statement_tree->left, local_scope);
+            // Evaluate the conditional
+            gen(statement_tree->right, local_scope);
+            printf("\tpop rax\n");
+            printf("\ttest rax, rax\n");
+            // If the conditional is true, continue the loop
+            printf("\tjnz do_while_%d\n", current_label);
             return;
         default:
             break;

@@ -131,4 +131,9 @@ try_file 205 "test_programs/while_loops.yacc"
 try 10 "a = 3; while(a < 10) a++; a;"
 try 10 "a = 3; while(++a < 10); a;"
 
+# Case 18: Do-while loops
+try_file 205 "test_programs/do_while_loops.yacc"
+try 10 "a = 3; do a++; while(a < 10); a;"
+try 10 "a = 3; do; while(++a < 10); a;"
+
 echo "OK"

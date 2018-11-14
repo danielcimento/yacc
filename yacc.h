@@ -50,6 +50,7 @@ enum {
     TK_ELSE,
     TK_WHILE,
     TK_FOR,
+    TK_DO,
 };
 
 typedef struct {
@@ -80,6 +81,7 @@ enum {
     ND_NOOP,
     ND_IF,
     ND_WHILE,
+    ND_DO,
 };
 
 typedef struct Node {
