@@ -126,4 +126,9 @@ try 248 "0370;"
 try 248 "0xf8;"
 try 248 "0b11111000;"
 
+# Case 17: While loops
+try_file 205 "test_programs/while_loops.yacc"
+try 10 "a = 3; while(a < 10) a++; a;"
+try 10 "a = 3; while(++a < 10); a;"
+
 echo "OK"

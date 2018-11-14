@@ -79,6 +79,7 @@ enum {
     ND_SCOPE,
     ND_NOOP,
     ND_IF,
+    ND_WHILE,
 };
 
 typedef struct Node {

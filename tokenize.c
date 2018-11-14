@@ -24,6 +24,7 @@ Map *get_reserved_words() {
     Map *reserved_word_map = new_map((void *)(long)-1);
     map_put(reserved_word_map, "if", (void *)(long)TK_IF);
     map_put(reserved_word_map, "else", (void *)(long)TK_ELSE);
+    map_put(reserved_word_map, "while", (void *)(long)TK_WHILE);
     map_put(reserved_word_map, "for", (void *)(long)TK_FOR);
 
     return reserved_word_map;

@@ -140,22 +140,34 @@ Node *parse_statement(Vector *tokens, int *pos, Node **current_scope_node) {
 
     switch(current_token->ty) {
         // A statement might be opening new scope
+        Node *cond_expression, *loop_body, *true_condition, *false_condition;
         case '{':
             *pos = *pos + 1;
             return parse_scope(tokens, pos, current_scope_node);
+        case ';':
+            *pos = *pos + 1;
+            // We need to allow for empty statements, like when someone does while(i++ > 100);
+            return no_op();
         case TK_IF:
             *pos = *pos + 1;
             expect_token(tokens, pos, __LINE__, '(');
-            Node *cond_expression = parse_expression(tokens, pos);
+            cond_expression = parse_expression(tokens, pos);
             expect_token(tokens, pos, __LINE__, ')');
-            Node *true_condition = parse_statement(tokens, pos, current_scope_node);
-            Node *false_condition = no_op();
+            true_condition = parse_statement(tokens, pos, current_scope_node);
+            false_condition = no_op();
             next_token = get_token(tokens, pos);
             if(next_token->ty == TK_ELSE) {
                 *pos = *pos + 1;
                 false_condition = parse_statement(tokens, pos, current_scope_node);
             }
             return ternary_operation_node(ND_IF, cond_expression, true_condition, false_condition);
+        case TK_WHILE:
+            *pos = *pos + 1;
+            expect_token(tokens, pos, __LINE__, '(');
+            cond_expression = parse_expression(tokens, pos);
+            expect_token(tokens, pos, __LINE__, ')');
+            loop_body = parse_statement(tokens, pos, current_scope_node);
+            return binary_operation_node(ND_WHILE, cond_expression, loop_body);
         // Otherwise, treat it as an expression separated by semicolons
         default: ;
             Node *expression = parse_expression(tokens, pos);

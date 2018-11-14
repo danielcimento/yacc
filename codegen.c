@@ -51,6 +51,7 @@ void gen_scope(Node *node, Scope **local_scope) {
         // Before we can return, we have to keep our stack balanced. But we can't pop after things that act like scopes (as recusively they've already been balanced).
         switch (current_node->ty) {
             case ND_SCOPE:
+            case ND_WHILE:
             case ND_IF:
                 break;
             default:
@@ -148,18 +149,36 @@ void gen_unary(Node *statement_tree, Scope **local_scope) {
 } 
 
 void gen_binary(Node *statement_tree, Scope **local_scope) {
-    // We do something unique for assignments
-    if(statement_tree->ty == '=') {
-        // The left-hand side of any assignment must be an lval
-        gen_lval(statement_tree->left, local_scope);
-        // Generate the value that we want to put into this lval
-        gen(statement_tree->right, local_scope);
-        printf("\tpop rdi\n");
-        printf("\tpop rax\n");
-        printf("\tmov [rax], rdi\n");
-        // By storing our value back on the stack we can chain assignments
-        printf("\tpush rdi\n");
-        return;
+    // Special cases that don't follow the "evaluate args, pop args, compute" sequence
+    switch(statement_tree->ty) {
+        int current_label;
+        case '=':
+            // The left-hand side of any assignment must be an lval
+            gen_lval(statement_tree->left, local_scope);
+            // Generate the value that we want to put into this lval
+            gen(statement_tree->right, local_scope);
+            printf("\tpop rdi\n");
+            printf("\tpop rax\n");
+            printf("\tmov [rax], rdi\n");
+            // By storing our value back on the stack we can chain assignments
+            printf("\tpush rdi\n");
+            return;
+        case ND_WHILE:
+            current_label = LABELS_GENERATED++;
+            printf("wlb_%d:\n", current_label);
+            // Evaluate the conditional
+            gen(statement_tree->left, local_scope);
+            printf("\tpop rax\n");
+            printf("\ttest rax, rax\n");
+            // If the conditional is false, end the loop
+            printf("\tjz wle_%d\n", current_label);
+            gen(statement_tree->right, local_scope);
+            // After we finish the loop body, jump back to the condition
+            printf("\tjmp wlb_%d\n", current_label);
+            printf("wle_%d:\n", current_label);
+            return;
+        default:
+            break;
     }
 
     gen(statement_tree->left, local_scope);
