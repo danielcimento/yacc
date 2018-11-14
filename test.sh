@@ -15,6 +15,24 @@ try() {
     fi
 }
 
+try_file() {
+    expected="$1"
+    file_name="$2"
+
+    ./yacc "$(cat "$file_name")" > tmp.s
+    gcc -o tmp tmp.s || exit 1
+    ./tmp
+    actual="$?"
+
+    if [ "$actual" != "$expected" ]; then
+        echo "$expected expected for file $file_name, but got $actual"
+        exit 1
+    fi
+}
+
+# Case 15: Comments
+try_file 5 "test_programs/comments.yacc"
+
 # Case 1: Numbers
 try 0 '0;'
 try 42 '42;'

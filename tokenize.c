@@ -23,14 +23,31 @@ Map *get_reserved_words() {
     return reserved_word_map;
 }
 
+enum {
+    NO_COMMENT = 0,
+    INLINE_COMMENT = 1,
+    BLOCK_COMMENT = 2
+};
+
 // Divides the string `p` into tokens and stores them in a token stream
 Vector *tokenize(char *p) {
+    int comment_state = NO_COMMENT;
     Vector *tokens = new_vector();
     Map *reserved_word_map = get_reserved_words();
 
     while (*p) {
         // Skip whitespace
-        if (isspace(*p)) {
+        if (isspace(*p) || comment_state != NO_COMMENT) {
+            // Finish block comments only on 
+            if(comment_state == BLOCK_COMMENT && *p == '*') {
+                if(*(p + 1) == '/') {
+                    p += 2;
+                    comment_state = NO_COMMENT;
+                    continue;
+                }
+            }
+            // Complete inline comments after a newline character shows up.
+            if(comment_state == INLINE_COMMENT && *p == '\n') comment_state = NO_COMMENT;
             p++;
             continue;
         }
@@ -101,6 +118,15 @@ Vector *tokenize(char *p) {
                     continue;
                 }
             case '/':
+                if(*(p + 1) == '/') {
+                    comment_state = INLINE_COMMENT;
+                    p += 2;
+                    continue;
+                } else if (*(p + 1) == '*') {
+                    comment_state = BLOCK_COMMENT;
+                    p += 2;
+                    continue;
+                }
             case '*':
             case ')':
             case '(':
@@ -122,5 +148,8 @@ Vector *tokenize(char *p) {
 
     vec_push(tokens, new_token(TK_EOF, p, 0, NULL));
 
+    if(comment_state == BLOCK_COMMENT) {
+        fprintf(stderr, "Warning: File ends before a block comment is closed. This won't cause issues now, but may cause unintended bugs in the future!\n");
+    }
     return tokens;
 }
