@@ -223,11 +223,11 @@ void gen_binary(Node *statement_tree, Scope **local_scope) {
 }
 
 void gen_ternary(Node *statement_tree, Scope **local_scope) {
+    int current_label;
     switch(statement_tree->ty) {
         // Ternary Operation
-        case ND_IF:
-        case ND_TERNARY_CONDITIONAL: ;
-            int current_label = LABELS_GENERATED++;
+        case ND_TERNARY_CONDITIONAL:
+            current_label = LABELS_GENERATED++;
             // First, we write the code to compute the value of the boolean expression
             gen(statement_tree->left, local_scope);
             // Pop the value from the stack and jump to the false condition if 0
@@ -241,6 +241,22 @@ void gen_ternary(Node *statement_tree, Scope **local_scope) {
             gen(statement_tree->right, local_scope);
             printf("cond_end_%d:\n", current_label);
             // Our original assumption is that our recursive trees end by putting their value on the stack, so we don't need to do anything else.
+            break;
+        case ND_IF:
+            // Same as ternary conditionals, but we have to remember to pop the stack when we aren't given a block as an argument
+            current_label = LABELS_GENERATED++;
+            gen(statement_tree->left, local_scope);
+            // Pop the value from the stack and jump to the false condition if 0
+            printf("\tpop rax\n");
+            printf("\ttest rax, rax\n");
+            printf("\tjz cond_f_%d\n", current_label);
+            gen(statement_tree->middle, local_scope);
+            if(statement_tree->middle->ty != ND_SCOPE) printf("\tpop rax\n");
+            printf("\tjmp cond_end_%d\n", current_label);
+            printf("cond_f_%d:\n", current_label);
+            gen(statement_tree->right, local_scope);
+            if(statement_tree->right->ty != ND_SCOPE && statement_tree->right->ty != ND_NOOP) printf("\tpop rax\n");
+            printf("cond_end_%d:\n", current_label);
             break;
         default: 
             fprintf(stderr, "Unknown ternary operation: %d\n", statement_tree->ty);

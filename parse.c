@@ -148,30 +148,12 @@ Node *parse_statement(Vector *tokens, int *pos, Node **current_scope_node) {
             expect_token(tokens, pos, __LINE__, '(');
             Node *cond_expression = parse_expression(tokens, pos);
             expect_token(tokens, pos, __LINE__, ')');
-            next_token = get_token(tokens, pos);
-            Node *true_condition = no_op();
+            Node *true_condition = parse_statement(tokens, pos, current_scope_node);
             Node *false_condition = no_op();
-            if(next_token->ty == '{') {
-                *pos = *pos + 1;
-                true_condition = parse_scope(tokens, pos, current_scope_node);
-            } else {
-                // Treat single line if-statements as though they were a single line scope block
-                true_condition = new_scope_node(false);
-                vec_push(true_condition->statements, parse_statement(tokens, pos, &true_condition));
-                true_condition->parent = *current_scope_node;
-            }
             next_token = get_token(tokens, pos);
             if(next_token->ty == TK_ELSE) {
                 *pos = *pos + 1;
-                next_token = get_token(tokens, pos);
-                if(next_token->ty == '{') {
-                    *pos = *pos + 1;
-                    false_condition = parse_scope(tokens, pos, current_scope_node);
-                } else {
-                    false_condition = new_scope_node(false);
-                    vec_push(false_condition->statements, parse_statement(tokens, pos, &false_condition));
-                    false_condition->parent = *current_scope_node;
-                }
+                false_condition = parse_statement(tokens, pos, current_scope_node);
             }
             return ternary_operation_node(ND_IF, cond_expression, true_condition, false_condition);
         // Otherwise, treat it as an expression separated by semicolons
