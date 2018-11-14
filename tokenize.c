@@ -59,13 +59,38 @@ Vector *tokenize(FILE *stream) {
             continue;
         }
 
-        // Read all digits in as base 10 numbers.
+        // Read all digit sequences in as numbers.
         if (isdigit(c)) {
+            int base = 10;
             int num_val = 0;
+            int num_representation;
+
+            if(c == '0') {
+                if(fpeek(stream) == 'x') {
+                    fgetc(stream);
+                    base = 16;
+                } else if(fpeek(stream) == 'b') {
+                    fgetc(stream);
+                    base = 2;
+                } else {
+                    base = 8;
+                }
+            }
+
             do {
-                num_val *= 10;
-                num_val += (c - '0');
-            } while(isdigit(c = fgetc(stream)));
+                num_val *= base;
+                if(c > 'f') {
+                    fprintf(stderr, "Invalid digit in hexadecimal number: %c\n", c);
+                    exit(TOKENIZE_ERROR);
+                } if(c > '7' && base == 8) {
+                    fprintf(stderr, "Invalid digit in octal number: %c\n", c);
+                    exit(TOKENIZE_ERROR);
+                } if(c > '1' && base == 2) {
+                    fprintf(stderr, "Invalid digit in binary number: %c\n", c);
+                }
+                num_representation = (c > '9') ? c - 'a' + 10 : c - '0';
+                num_val += num_representation;
+            } while(isdigit(c = fgetc(stream)) || (base == 16 && c >= 'a' && c <= 'f'));
             ungetc(c, stream);
 
             vec_push(tokens, new_token(TK_NUM, num_val, NULL));

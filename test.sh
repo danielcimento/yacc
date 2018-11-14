@@ -30,9 +30,6 @@ try_file() {
     fi
 }
 
-# Case 15: Comments
-try_file 5 "test_programs/comments.yacc"
-
 # Case 1: Numbers
 try 0 '0;'
 try 42 '42;'
@@ -117,5 +114,16 @@ try 15 "a = 3; { b = 2; { c = 3; { (c + b) * a; } } }"
 # Case 14: Control Flow
 try 5 "a = 3; if(a > 2) { a++; } else { a--; } if(a > 3) { a++; } a;"
 try 5 "a = 3; if(a > 2) a++; else a--; if(a > 3) a++; a;"
+
+# Case 15: Comments
+try_file 5 "test_programs/comments.yacc"
+
+# Case 16: Hex and Octal numbers
+try 15 "017;"
+try 15 "0xf;"
+try 15 "0b1111;"
+try 248 "0370;"
+try 248 "0xf8;"
+try 248 "0b11111000;"
 
 echo "OK"
