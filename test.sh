@@ -96,4 +96,8 @@ try 2 "foo = 10 ? 3 : 5; --foo;"
 try 12 "a = 1; {b = 2; a = a + b;} c = 4; a * c;"
 try 15 "a = 3; { b = 2; { c = 3; { (c + b) * a; } } }"
 
+# Case 14: Control Flow
+try 5 "a = 3; if(a > 2) { a++; } else { a--; } if(a > 3) { a++; } a;"
+try 5 "a = 3; if(a > 2) a++; else a--; if(a > 3) a++; a;"
+
 echo "OK"

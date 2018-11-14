@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
     
     Scope *scope = construct_scope_from_token_stream(token_stream);
 
-    gen_scope(global_scope_node, &scope, false);
+    gen_scope(global_scope_node, &scope);
 
     printf("\tret\n");
     return 0;

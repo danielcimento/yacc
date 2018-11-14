@@ -31,10 +31,9 @@ void gen_lval(Node *node, Scope **local_scope) {
     }
 }
 
-// We use the should_descend parameter because we don't want to descend the very first time we enter our scope
-void gen_scope(Node *node, Scope **local_scope, bool should_descend) {
+void gen_scope(Node *node, Scope **local_scope) {
     // Go into our new scope
-    if(should_descend) {
+    if(node->descend) {
         *local_scope = get_next_child_scope(*local_scope);
     }
 
@@ -49,15 +48,21 @@ void gen_scope(Node *node, Scope **local_scope, bool should_descend) {
     for(int i = 0; i < node->statements->len; i++) {
         Node *current_node = (Node *)node->statements->data[i];
         gen(current_node, local_scope);
-        // Before we can return, we have to keep our stack balanced. But we can't pop after scope completion.
-        if(current_node->ty != ND_SCOPE) printf("\tpop rax\n");
+        // Before we can return, we have to keep our stack balanced. But we can't pop after things that act like scopes (as recusively they've already been balanced).
+        switch (current_node->ty) {
+            case ND_SCOPE:
+            case ND_IF:
+                break;
+            default:
+                printf("\tpop rax\n");
+        }
     }
 
     // Function epilogue:
     printf("\tmov rsp, rbp\n");
     printf("\tpop rbp\n");
 
-    if(should_descend) {
+    if(node->descend) {
         // Leave our scope
         *local_scope = (*local_scope)->parent_scope;
         // Mark that we've completed traversing this scope
@@ -220,6 +225,7 @@ void gen_binary(Node *statement_tree, Scope **local_scope) {
 void gen_ternary(Node *statement_tree, Scope **local_scope) {
     switch(statement_tree->ty) {
         // Ternary Operation
+        case ND_IF:
         case ND_TERNARY_CONDITIONAL: ;
             int current_label = LABELS_GENERATED++;
             // First, we write the code to compute the value of the boolean expression
@@ -255,8 +261,10 @@ void gen(Node *statement_tree, Scope **local_scope) {
             break;
         default:
             switch(statement_tree->ty) {
+                case ND_NOOP:
+                    break;
                 case ND_SCOPE:
-                    gen_scope(statement_tree, local_scope, true);
+                    gen_scope(statement_tree, local_scope);
                     break;
                 case ND_NUM:
                     // For numbers, we only push the direct value on the stack

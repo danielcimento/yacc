@@ -72,6 +72,8 @@ enum {
     ND_POST_DECREMENT,
     ND_TERNARY_CONDITIONAL,     // cond ? a : b;
     ND_SCOPE,
+    ND_NOOP,
+    ND_IF,
 };
 
 typedef struct Node {
@@ -84,6 +86,7 @@ typedef struct Node {
     struct Node *right;     // Right child. Second arg in binary operations. Third arg in ternary operations
     Vector *statements;     // Used for scope nodes
     struct Node *parent;    // Used for scope node navigation
+    bool descend;
 } Node;
 
 Node *parse_code(Vector *tokens);
@@ -107,6 +110,6 @@ Scope *construct_scope_from_token_stream(Vector *tokens);
 Scope *get_next_child_scope(Scope *current_scope);
 
 // void gen(Node *statement_tree, Map *local_variables);
-void gen_scope(Node *node, Scope **local_scope, bool should_descend);
+void gen_scope(Node *node, Scope **local_scope);
 
 void run_test();

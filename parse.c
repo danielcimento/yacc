@@ -56,16 +56,35 @@ Node *new_numeric_node(int val) {
     return node;
 }
 
-Node *new_scope_node() {
+Node *new_scope_node(bool descend) {
     Node *node = malloc(sizeof(Node));
     node->ty = ND_SCOPE;
     node->arity = 0;
     node->statements = new_vector();
+    node->descend = descend;
+    return node;
+}
+
+Node *no_op() {
+    Node *node = malloc(sizeof(Node));
+    node->ty = ND_NOOP;
+    node->arity = 0;
     return node;
 }
 
 Token *get_token(Vector *tokens, int *pos) {
     return (Token *)tokens->data[*pos];
+}
+
+// Checks (and consumes) the next token to ensure syntax
+void expect_token(Vector *tokens, int *pos, int line_num, int type) {
+    Token *expected = get_token(tokens, pos);
+    if(expected->ty != type) {
+        fprintf(stderr, "[Line %d] Unexpected token occured while parsing: %s (Type: %i) (Pos: %i)\n", line_num, expected->input, expected->ty, *pos);
+        fprintf(stderr, "Expected: %d\n", type);
+        exit(PARSE_ERROR);
+    }
+    *pos = *pos + 1;
 }
 
 // Prototypes for back-referencing/mutual recursion
@@ -76,7 +95,7 @@ Node *parse_code(Vector *tokens) {
     int *pos = malloc(sizeof(int));
     *pos = 0;
 
-    Node *global_scope = new_scope_node();
+    Node *global_scope = new_scope_node(false);
     Node **current_scope_node = &global_scope;
     Token *tk = get_token(tokens, pos);
     while(tk->ty != TK_EOF) {
@@ -88,7 +107,7 @@ Node *parse_code(Vector *tokens) {
 }
 
 Node *parse_scope(Vector *tokens, int *pos, Node **current_scope_node) {
-    Node *new_scope = new_scope_node();
+    Node *new_scope = new_scope_node(true);
     Token *current_token = get_token(tokens, pos);
 
     while(current_token->ty != '}') {
@@ -117,15 +136,48 @@ Node *parse_expression(Vector *tokens, int *pos) {
 
 Node *parse_statement(Vector *tokens, int *pos, Node **current_scope_node) {
     Token *current_token = get_token(tokens, pos);
+    Token *next_token;
+
     switch(current_token->ty) {
         // A statement might be opening new scope
         case '{':
             *pos = *pos + 1;
             return parse_scope(tokens, pos, current_scope_node);
+        case TK_IF:
+            *pos = *pos + 1;
+            expect_token(tokens, pos, __LINE__, '(');
+            Node *cond_expression = parse_expression(tokens, pos);
+            expect_token(tokens, pos, __LINE__, ')');
+            next_token = get_token(tokens, pos);
+            Node *true_condition = no_op();
+            Node *false_condition = no_op();
+            if(next_token->ty == '{') {
+                *pos = *pos + 1;
+                true_condition = parse_scope(tokens, pos, current_scope_node);
+            } else {
+                // Treat single line if-statements as though they were a single line scope block
+                true_condition = new_scope_node(false);
+                vec_push(true_condition->statements, parse_statement(tokens, pos, &true_condition));
+                true_condition->parent = *current_scope_node;
+            }
+            next_token = get_token(tokens, pos);
+            if(next_token->ty == TK_ELSE) {
+                *pos = *pos + 1;
+                next_token = get_token(tokens, pos);
+                if(next_token->ty == '{') {
+                    *pos = *pos + 1;
+                    false_condition = parse_scope(tokens, pos, current_scope_node);
+                } else {
+                    false_condition = new_scope_node(false);
+                    vec_push(false_condition->statements, parse_statement(tokens, pos, &false_condition));
+                    false_condition->parent = *current_scope_node;
+                }
+            }
+            return ternary_operation_node(ND_IF, cond_expression, true_condition, false_condition);
         // Otherwise, treat it as an expression separated by semicolons
         default: ;
             Node *expression = parse_expression(tokens, pos);
-            Token *next_token = get_token(tokens, pos);
+            next_token = get_token(tokens, pos);
             if (next_token->ty != ';') {
                 unexpected_token(*next_token, "Expected semicolon.", __LINE__, *pos);
             }
