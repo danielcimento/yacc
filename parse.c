@@ -5,7 +5,7 @@
  **/
 
 Node *unexpected_token(Token token, char *hint, int line_num, int pos) {
-    fprintf(stderr, "[Line %d] Unexpected token occured while parsing: %s (Type: %i) (Pos: %i)\n", line_num, token.input, token.ty, pos);
+    fprintf(stderr, "[Line %d] Unexpected token occured while parsing: %c (Type: %i) (Pos: %i)\n", line_num, token.ty, token.ty, pos);
     if(hint != NULL) {
         fprintf(stderr, "Hint: %s\n", hint);
     }
@@ -80,7 +80,7 @@ Token *get_token(Vector *tokens, int *pos) {
 void expect_token(Vector *tokens, int *pos, int line_num, int type) {
     Token *expected = get_token(tokens, pos);
     if(expected->ty != type) {
-        fprintf(stderr, "[Line %d] Unexpected token occured while parsing: %s (Type: %i) (Pos: %i)\n", line_num, expected->input, expected->ty, *pos);
+        fprintf(stderr, "[Line %d] Unexpected token occured while parsing: %c (Type: %i) (Pos: %i)\n", line_num, expected->ty, expected->ty, *pos);
         fprintf(stderr, "Expected: %d\n", type);
         exit(PARSE_ERROR);
     }

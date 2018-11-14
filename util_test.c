@@ -77,7 +77,16 @@ void test_scope() {
 void test_scope_resolution() {
     char *example_code = "foo = 2; bar = 3; {i = 0; i + 1; {bar = 3; buzz = 2;}} {i = 0; bar = 2;}";
 
-    Vector *tokens = tokenize(example_code);
+    char *filename = "yacc_temp.yacc";
+    if(access(filename, F_OK) != -1) {
+        fprintf(stderr, "Please delete any files named \"yacc_temp.yacc\" when using literal input.\n");
+        exit(EXTERNAL_ERROR);
+    }
+    FILE *input_file = fopen(filename, "w");
+    fprintf(input_file, "%s", example_code);
+    fclose(input_file);
+
+    Vector *tokens = tokenize(fopen(filename, "r"));
     Scope *generated_scope = construct_scope_from_token_stream(tokens);
 
     expect(__LINE__, 2, generated_scope->sub_scopes->len);
@@ -96,6 +105,8 @@ void test_scope_resolution() {
     VariableAddress *bar_location3 = get_variable_location(sub_sub_scope, "bar");
     expect(__LINE__, 2, bar_location3->scopes_up);
     expect(__LINE__, 16, bar_location3->offset);
+
+    remove(filename);
 }
 
 void run_test() {

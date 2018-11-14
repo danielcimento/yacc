@@ -1,17 +1,23 @@
 #include "yacc.h"
 #include <stdbool.h>
 
-Token *new_token(int type, char *input, int val, char *name) {
+bool is_identifier_character(char c) {
+    return isalpha(c) || isdigit(c) || c == '_';
+}
+
+int fpeek(FILE *stream) {
+    int c;
+    c = fgetc(stream);
+    ungetc(c, stream);
+    return c;
+}
+
+Token *new_token(int type, int val, char *name) {
     Token *tk = malloc(sizeof(Token));
     tk->ty = type;
-    tk->input = input;
     tk->val = val;
     tk->name = name;
     return tk;
-}
-
-bool is_identifier_character(char c) {
-    return isalpha(c) || isdigit(c) || c == '_';
 }
 
 Map *get_reserved_words() {
@@ -30,101 +36,109 @@ enum {
 };
 
 // Divides the string `p` into tokens and stores them in a token stream
-Vector *tokenize(char *p) {
+Vector *tokenize(FILE *stream) {
+    int position = 0;
     int comment_state = NO_COMMENT;
+    char c;                             // currently read character
     Vector *tokens = new_vector();
     Map *reserved_word_map = get_reserved_words();
 
-    while (*p) {
+    while ((c = fgetc(stream)) != EOF) {
         // Skip whitespace
-        if (isspace(*p) || comment_state != NO_COMMENT) {
+        if (isspace(c) || comment_state != NO_COMMENT) {
             // Finish block comments only on 
-            if(comment_state == BLOCK_COMMENT && *p == '*') {
-                if(*(p + 1) == '/') {
-                    p += 2;
+            if(comment_state == BLOCK_COMMENT && c == '*') {
+                if(fpeek(stream) == '/') {
+                    fgetc(stream);
                     comment_state = NO_COMMENT;
                     continue;
                 }
             }
             // Complete inline comments after a newline character shows up.
-            if(comment_state == INLINE_COMMENT && *p == '\n') comment_state = NO_COMMENT;
-            p++;
+            if(comment_state == INLINE_COMMENT && c == '\n') comment_state = NO_COMMENT;
             continue;
         }
 
         // Read all digits in as base 10 numbers.
-        // We also account for the very special case
-        // where the first number is negative.
-        if (isdigit(*p)) {
-            vec_push(tokens, new_token(TK_NUM, p, strtol(p, &p, 10), NULL));
+        if (isdigit(c)) {
+            int num_val = 0;
+            do {
+                num_val *= 10;
+                num_val += (c - '0');
+            } while(isdigit(c = fgetc(stream)));
+            ungetc(c, stream);
+
+            vec_push(tokens, new_token(TK_NUM, num_val, NULL));
             continue;
         }
 
         // Check for words (for reserved keywords and identifiers)
-        if(isalpha(*p) || *p == '_') {
+        if(isalpha(c) || c == '_') {
             // String parsing
             int i = 0;
             char *identifier_name = malloc(128 * sizeof(char));
-            while(is_identifier_character(*p)) {
-                identifier_name[i++] = *(p++);
-            }
+            do {
+                identifier_name[i++] = c;
+            } while(is_identifier_character(c = fgetc(stream)));
+            // Close string and put back the character that isn't part of our string
             identifier_name[i] = 0;
+            ungetc(c, stream);
 
             // Look up any potential reserved word this maps to, and if it doesn't set it as an identifier
             int word_code = (long)map_get(reserved_word_map, identifier_name);
             if(word_code != -1) {
-                vec_push(tokens, new_token(word_code, p, 0, NULL));
+                vec_push(tokens, new_token(word_code, 0, NULL));
             } else {
-                vec_push(tokens, new_token(TK_IDENT, p, 0, identifier_name));
+                vec_push(tokens, new_token(TK_IDENT, 0, identifier_name));
             }
             continue;
         }
 
-        switch (*p) {
+        switch (c) {
             case '=':
-                if(*(p + 1) == '=') {
-                    vec_push(tokens, new_token(TK_EQUAL, p, 0, NULL));
-                    p += 2;
+                if(fpeek(stream) == '=') {
+                    vec_push(tokens, new_token(TK_EQUAL, 0, NULL));
+                    fgetc(stream);
                     continue;
                 }
             case '!':
-                if(*(p + 1) == '=') {
-                    vec_push(tokens, new_token(TK_NEQUAL, p, 0, NULL));
-                    p += 2;
+                if(fpeek(stream) == '=') {
+                    vec_push(tokens, new_token(TK_NEQUAL, 0, NULL));
+                    fgetc(stream);
                     continue;
                 }
             case '>':
-                if(*(p + 1) == '=') {
-                    vec_push(tokens, new_token(TK_GEQUAL, p, 0, NULL));
-                    p += 2;
+                if(fpeek(stream) == '=') {
+                    vec_push(tokens, new_token(TK_GEQUAL, 0, NULL));
+                    fgetc(stream);
                     continue;
                 }
             case '<':
-                if(*(p + 1) == '=') {
-                    vec_push(tokens, new_token(TK_LEQUAL, p, 0, NULL));
-                    p += 2;
+                if(fpeek(stream) == '=') {
+                    vec_push(tokens, new_token(TK_LEQUAL, 0, NULL));
+                    fgetc(stream);
                     continue;
                 }
             case '-':
-                if(*(p + 1) == '-') {
-                    vec_push(tokens, new_token(TK_DECREMENT, p, 0, NULL));
-                    p += 2;
+                if(fpeek(stream) == '-') {
+                    vec_push(tokens, new_token(TK_DECREMENT, 0, NULL));
+                    fgetc(stream);
                     continue;
                 }
             case '+':
-                if(*(p + 1) == '+') {
-                    vec_push(tokens, new_token(TK_INCREMENT, p, 0, NULL));
-                    p += 2;
+                if(fpeek(stream) == '+') {
+                    vec_push(tokens, new_token(TK_INCREMENT, 0, NULL));
+                    fgetc(stream);
                     continue;
                 }
             case '/':
-                if(*(p + 1) == '/') {
+                if(fpeek(stream) == '/') {
                     comment_state = INLINE_COMMENT;
-                    p += 2;
+                    fgetc(stream);
                     continue;
-                } else if (*(p + 1) == '*') {
+                } else if (fpeek(stream) == '*') {
                     comment_state = BLOCK_COMMENT;
-                    p += 2;
+                    fgetc(stream);
                     continue;
                 }
             case '*':
@@ -137,16 +151,16 @@ Vector *tokenize(char *p) {
             case '%':
             case ':':
             case '?':
-                vec_push(tokens, new_token(*p, p, 0, NULL));
-                p++;
+                vec_push(tokens, new_token(c, 0, NULL));
                 continue;
             default:
-                fprintf(stderr, "Cannot tokenize: %s (Code Point: %d)\n", p, *p);
+                fprintf(stderr, "Cannot tokenize \"%c\" at position %d (Code Point: %d)\n", c, position, c);
                 exit(TOKENIZE_ERROR);
         }
+        position++;
     }
 
-    vec_push(tokens, new_token(TK_EOF, p, 0, NULL));
+    vec_push(tokens, new_token(TK_EOF, 0, NULL));
 
     if(comment_state == BLOCK_COMMENT) {
         fprintf(stderr, "Warning: File ends before a block comment is closed. This won't cause issues now, but may cause unintended bugs in the future!\n");

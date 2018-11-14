@@ -4,7 +4,7 @@ try() {
     expected="$1"
     input="$2"
 
-    ./yacc "$input" > tmp.s
+    ./yacc -l "$input" > tmp.s
     gcc -o tmp tmp.s || exit 1
     ./tmp
     actual="$?"
@@ -19,7 +19,7 @@ try_file() {
     expected="$1"
     file_name="$2"
 
-    ./yacc "$(cat "$file_name")" > tmp.s
+    ./yacc "$file_name" > tmp.s
     gcc -o tmp tmp.s || exit 1
     ./tmp
     actual="$?"

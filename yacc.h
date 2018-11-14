@@ -3,6 +3,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
+
+int fpeek(FILE *stream);
 
 typedef struct {
     void **data;
@@ -28,6 +33,7 @@ enum {
     PARSE_ERROR = 2,
     CODEGEN_ERROR = 3,
     SCOPE_ERROR = 4,
+    EXTERNAL_ERROR = 5,
 };
 
 enum {
@@ -50,10 +56,9 @@ typedef struct {
     int ty;         // Token type
     int val;        // Value of the token, if a number
     char *name;
-    char *input;    // Token's string representation (for error messages)
 } Token;
 
-Vector *tokenize(char *p);
+Vector *tokenize(FILE *stream);
 
 enum {
     ND_NUM = 256,               // Integer node type
