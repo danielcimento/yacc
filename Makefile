@@ -14,4 +14,4 @@ test: yacc
 	./test.sh
 
 clean:
-	rm -f yacc *.o *~ tmp* *.out yacc_temp.yacc
+	rm -f yacc *.o *.s *~ tmp* *.out yacc_temp.yacc

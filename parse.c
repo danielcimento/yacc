@@ -40,6 +40,13 @@ Node *unary_operation_node(int op, Node *child) {
     return node;
 }
 
+Node *nullary_operation_node(int op) {
+    Node *node = malloc(sizeof(Node));
+    node->ty = op;
+    node->arity = 0;
+    return node;
+}
+
 Node *new_identifier_node(char *name) {
     Node *node = malloc(sizeof(Node));
     node->ty = ND_IDENT;
@@ -62,6 +69,8 @@ Node *new_scope_node(bool descend) {
     node->arity = 0;
     node->statements = new_vector();
     node->descend = descend;
+    node->break_label = NULL;
+    node->continue_label = NULL;
     return node;
 }
 
@@ -148,6 +157,14 @@ Node *parse_statement(Vector *tokens, int *pos, Node **current_scope_node) {
             *pos = *pos + 1;
             // We need to allow for empty statements, like when someone does while(i++ > 100);
             return no_op();
+        case TK_BREAK:
+            *pos = *pos + 1;
+            expect_token(tokens, pos, __LINE__, ';');
+            return nullary_operation_node(ND_BREAK);
+        case TK_CONTINUE:
+            *pos = *pos + 1;
+            expect_token(tokens, pos, __LINE__, ';');
+            return nullary_operation_node(ND_CONTINUE);
         case TK_IF:
             *pos = *pos + 1;
             expect_token(tokens, pos, __LINE__, '(');

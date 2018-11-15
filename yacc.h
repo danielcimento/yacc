@@ -51,6 +51,8 @@ enum {
     TK_WHILE,
     TK_FOR,
     TK_DO,
+    TK_BREAK,
+    TK_CONTINUE
 };
 
 typedef struct {
@@ -82,6 +84,8 @@ enum {
     ND_IF,
     ND_WHILE,
     ND_DO,
+    ND_BREAK,
+    ND_CONTINUE,
 };
 
 typedef struct Node {
@@ -95,6 +99,8 @@ typedef struct Node {
     Vector *statements;     // Used for scope nodes
     struct Node *parent;    // Used for scope node navigation
     bool descend;
+    char *break_label;      // Used to keep track of which label a break/continue statement should jump to
+    char *continue_label;   
 } Node;
 
 Node *parse_code(Vector *tokens);
@@ -104,6 +110,8 @@ typedef struct Scope {
     Map *variables_declared;
     struct Scope *parent_scope;
     int scopes_traversed;
+    char *break_label;      // Used to keep track of which label a break/continue statement should jump to
+    char *continue_label;   
 } Scope;
 
 typedef struct {

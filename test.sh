@@ -30,6 +30,9 @@ try_file() {
     fi
 }
 
+# Case 19: Breaks & Continues
+try_file 25 "test_programs/breaks.yacc"
+
 # Case 1: Numbers
 try 0 '0;'
 try 42 '42;'

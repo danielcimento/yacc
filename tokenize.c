@@ -27,6 +27,8 @@ Map *get_reserved_words() {
     map_put(reserved_word_map, "while", (void *)(long)TK_WHILE);
     map_put(reserved_word_map, "do", (void *)(long)TK_DO);
     map_put(reserved_word_map, "for", (void *)(long)TK_FOR);
+    map_put(reserved_word_map, "break", (void *)(long)TK_BREAK);
+    map_put(reserved_word_map, "continue", (void *)(long)TK_CONTINUE);
 
     return reserved_word_map;
 }

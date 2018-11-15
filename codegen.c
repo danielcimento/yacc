@@ -9,6 +9,26 @@ void gen(Node *statement_tree, Scope **local_scope);
     # define comment(s, ...) printf("\n")
 # endif
 
+bool places_on_stack(int ty) {
+    switch(ty) {
+        case ND_SCOPE:
+        case ND_WHILE:
+        case ND_IF:
+        case ND_DO:
+        case ND_BREAK:
+        case ND_CONTINUE:
+        case ND_NOOP:
+            return false;
+        default:
+            return true;
+    }
+}
+
+void scope_epilogue() {
+    printf("\tmov rsp, rbp\n");
+    printf("\tpop rbp\n");
+}
+
 // Generate the code to put an lval's address on the stack.
 void gen_lval(Node *node, Scope **local_scope) {
     if(node->ty == ND_IDENT) {
@@ -37,6 +57,18 @@ void gen_scope(Node *node, Scope **local_scope) {
         *local_scope = get_next_child_scope(*local_scope);
     }
 
+    if(node->parent) {
+        switch(node->parent->ty) {
+            case ND_WHILE:
+            case ND_DO:
+                (*local_scope)->break_label = node->parent->break_label;
+                (*local_scope)->continue_label = node->parent->continue_label;
+                break;
+            default:
+                break;
+        }
+    }
+
     // Function prologue:
     printf("\tpush rbp\n");
     printf("\tmov rbp, rsp\n");
@@ -49,20 +81,11 @@ void gen_scope(Node *node, Scope **local_scope) {
         Node *current_node = (Node *)node->statements->data[i];
         gen(current_node, local_scope);
         // Before we can return, we have to keep our stack balanced. But we can't pop after things that act like scopes (as recusively they've already been balanced).
-        switch (current_node->ty) {
-            case ND_SCOPE:
-            case ND_WHILE:
-            case ND_IF:
-            case ND_DO:
-                break;
-            default:
-                printf("\tpop rax\n");
-        }
+        if(places_on_stack(current_node->ty)) printf("\tpop rax\n");
     }
 
     // Function epilogue:
-    printf("\tmov rsp, rbp\n");
-    printf("\tpop rbp\n");
+    scope_epilogue();
 
     if(node->descend) {
         // Leave our scope
@@ -166,6 +189,10 @@ void gen_binary(Node *statement_tree, Scope **local_scope) {
             return;
         case ND_WHILE:
             current_label = LABELS_GENERATED++;
+            statement_tree->break_label = malloc(sizeof(char) * 32);
+            snprintf(statement_tree->break_label, 32, "wle_%d", current_label);
+            statement_tree->continue_label = malloc(sizeof(char) * 32);
+            snprintf(statement_tree->continue_label, 32, "wlb_%d", current_label);
             printf("wlb_%d:\n", current_label);
             // Evaluate the conditional
             gen(statement_tree->left, local_scope);
@@ -173,22 +200,33 @@ void gen_binary(Node *statement_tree, Scope **local_scope) {
             printf("\ttest rax, rax\n");
             // If the conditional is false, end the loop
             printf("\tjz wle_%d\n", current_label);
+            // Before we can generate a child scope, we need to keep track of where that scope should break/continue to
+            statement_tree->right->parent = statement_tree;
             gen(statement_tree->right, local_scope);
+            if(places_on_stack(statement_tree->right->ty)) printf("\tpop rax\n");
             // After we finish the loop body, jump back to the condition
             printf("\tjmp wlb_%d\n", current_label);
             printf("wle_%d:\n", current_label);
             return;
         case ND_DO:
             current_label = LABELS_GENERATED++;
-            printf("do_while_%d:\n", current_label);
+            statement_tree->break_label = malloc(sizeof(char) * 32);
+            snprintf(statement_tree->break_label, 32, "dwe_%d", current_label);
+            statement_tree->continue_label = malloc(sizeof(char) * 32);
+            snprintf(statement_tree->continue_label, 32, "dwc_%d", current_label);
+            printf("dwb_%d:\n", current_label);
             // Execute the loop body
+            statement_tree->left->parent = statement_tree;
             gen(statement_tree->left, local_scope);
+            if(places_on_stack(statement_tree->left->ty)) printf("\tpop rax\n");
             // Evaluate the conditional
+            printf("dwc_%d:\n", current_label);
             gen(statement_tree->right, local_scope);
             printf("\tpop rax\n");
             printf("\ttest rax, rax\n");
             // If the conditional is true, continue the loop
-            printf("\tjnz do_while_%d\n", current_label);
+            printf("\tjnz dwb_%d\n", current_label);
+            printf("dwe_%d:\n", current_label);
             return;
         default:
             break;
@@ -283,11 +321,11 @@ void gen_ternary(Node *statement_tree, Scope **local_scope) {
             printf("\ttest rax, rax\n");
             printf("\tjz cond_f_%d\n", current_label);
             gen(statement_tree->middle, local_scope);
-            if(statement_tree->middle->ty != ND_SCOPE) printf("\tpop rax\n");
+            if(places_on_stack(statement_tree->middle->ty)) printf("\tpop rax\n");
             printf("\tjmp cond_end_%d\n", current_label);
             printf("cond_f_%d:\n", current_label);
             gen(statement_tree->right, local_scope);
-            if(statement_tree->right->ty != ND_SCOPE && statement_tree->right->ty != ND_NOOP) printf("\tpop rax\n");
+            if(places_on_stack(statement_tree->right->ty)) printf("\tpop rax\n");
             printf("cond_end_%d:\n", current_label);
             break;
         default: 
@@ -297,6 +335,8 @@ void gen_ternary(Node *statement_tree, Scope **local_scope) {
 }
 
 void gen(Node *statement_tree, Scope **local_scope) {
+    int scopes_to_break = 1;
+
     switch(statement_tree->arity) {
         case 3:
             gen_ternary(statement_tree, local_scope);
@@ -309,6 +349,32 @@ void gen(Node *statement_tree, Scope **local_scope) {
             break;
         default:
             switch(statement_tree->ty) {
+                case ND_BREAK: ;
+                    Scope *breakable_scope = *local_scope;
+                    while(breakable_scope->break_label == NULL) {
+                        if(breakable_scope->parent_scope == NULL) {
+                            fprintf(stderr, "Could not find a scope to break from. Considering 'break' as a no-op.\n");
+                            return;
+                        }
+                        breakable_scope = breakable_scope->parent_scope;
+                        scopes_to_break++;
+                    }
+                    while(scopes_to_break-- > 0) scope_epilogue();
+                    printf("\tjmp %s\n", breakable_scope->break_label);
+                    break;
+                case ND_CONTINUE: ;
+                    Scope *continuable_scope = *local_scope;
+                    while(continuable_scope->continue_label == NULL) {
+                        if(continuable_scope->parent_scope == NULL) {
+                            fprintf(stderr, "Could not find a scope to continue from. Considering 'continue' as a no-op.\n");
+                            return;
+                        }
+                        continuable_scope = continuable_scope->parent_scope;
+                        scopes_to_break++;
+                    }
+                    while(scopes_to_break-- > 0) scope_epilogue();
+                    printf("\tjmp %s\n", continuable_scope->continue_label);
+                    break;
                 case ND_NOOP:
                     break;
                 case ND_SCOPE:
