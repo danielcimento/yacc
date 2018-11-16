@@ -61,6 +61,7 @@ void gen_scope(Node *node, Scope **local_scope) {
         switch(node->parent->ty) {
             case ND_WHILE:
             case ND_DO:
+            case ND_FOR:
                 (*local_scope)->break_label = node->parent->break_label;
                 (*local_scope)->continue_label = node->parent->continue_label;
                 break;
@@ -334,10 +335,50 @@ void gen_ternary(Node *statement_tree, Scope **local_scope) {
     }
 }
 
+void gen_quaternary(Node *statement_tree, Scope **local_scope) {
+    int current_label;
+    switch(statement_tree->ty) {
+        case ND_FOR:
+            current_label = LABELS_GENERATED++;
+            statement_tree->break_label = malloc(sizeof(char) * 32);
+            snprintf(statement_tree->break_label, 32, "fle_%d", current_label);
+            statement_tree->continue_label = malloc(sizeof(char) * 32);
+            snprintf(statement_tree->continue_label, 32, "flc_%d", current_label);
+            // Evaluate the initializer
+            gen(statement_tree->left, local_scope);
+            if(places_on_stack(statement_tree->left->ty)) printf("\tpop rax\n");
+            printf("flc_%d:\n", current_label);
+            // Evaluate the conditional
+            gen(statement_tree->middle, local_scope);
+            if(places_on_stack(statement_tree->middle->ty)) {
+                printf("\tpop rax\n");
+                printf("\ttest rax, rax\n");
+                printf("\tjz fle_%d\n", current_label);
+            }
+            statement_tree->extra->parent = statement_tree;
+            // Evaluate the loop body
+            gen(statement_tree->extra, local_scope);
+            if(places_on_stack(statement_tree->extra->ty)) printf("\tpop rax\n");
+            // Evaluate the post-loop statement
+            gen(statement_tree->right, local_scope);
+            if(places_on_stack(statement_tree->right->ty)) printf("\tpop rax\n");
+            // Go back to conditional
+            printf("\tjmp flc_%d\n", current_label);
+            printf("fle_%d:\n", current_label);
+            break;
+        default: 
+            fprintf(stderr, "Unknown quaternary operation: %d\n", statement_tree->ty);
+            exit(CODEGEN_ERROR);
+    }
+}
+
 void gen(Node *statement_tree, Scope **local_scope) {
     int scopes_to_break = 1;
 
     switch(statement_tree->arity) {
+        case 4:
+            gen_quaternary(statement_tree, local_scope);
+            break;
         case 3:
             gen_ternary(statement_tree, local_scope);
             break;
@@ -393,7 +434,7 @@ void gen(Node *statement_tree, Scope **local_scope) {
                     printf("\tpush rax\n");
                     break;
                 default:
-                    fprintf(stderr, "Unexpected arity: %d\n", statement_tree->arity);
+                    fprintf(stderr, "Unexpected arity %d for expression of type %d\n", statement_tree->arity, statement_tree->ty);
                     exit(CODEGEN_ERROR);
             }
     } 

@@ -139,4 +139,9 @@ try_file 205 "test_programs/do_while_loops.yacc"
 try 10 "a = 3; do a++; while(a < 10); a;"
 try 10 "a = 3; do; while(++a < 10); a;"
 
+# Case 19: For-loops
+try 13 "a = 3; for(i = 0; i < 10; i++) { a++; } a;"
+try 13 "a = 3; i = 0; for(; i < 10; i++) a++; a;"
+try 13 "a = 3; i = 0; for(;;) { i++; a++; if(i >= 10) break; } a;"
+
 echo "OK"

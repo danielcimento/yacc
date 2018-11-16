@@ -13,6 +13,17 @@ Node *unexpected_token(Token token, char *hint, int line_num, int pos) {
     return NULL;
 }
 
+Node *quaternary_operation_node(int op, Node *left, Node *middle, Node *right, Node *extra) {
+    Node *node = malloc(sizeof(Node));
+    node->ty = op;
+    node->arity = 4;
+    node->left = left;
+    node->middle = middle;
+    node->right = right;
+    node->extra = extra;
+    return node;
+}
+
 Node *ternary_operation_node(int op, Node *left, Node *middle, Node *right) {
     Node *node = malloc(sizeof(Node));
     node->ty = op;
@@ -149,7 +160,7 @@ Node *parse_statement(Vector *tokens, int *pos, Node **current_scope_node) {
 
     switch(current_token->ty) {
         // A statement might be opening new scope
-        Node *cond_expression, *loop_body, *true_condition, *false_condition;
+        Node *cond_expression, *loop_body, *true_condition, *false_condition, *initializer, *iteration;
         case '{':
             *pos = *pos + 1;
             return parse_scope(tokens, pos, current_scope_node);
@@ -194,6 +205,21 @@ Node *parse_statement(Vector *tokens, int *pos, Node **current_scope_node) {
             expect_token(tokens, pos, __LINE__, ')');
             expect_token(tokens, pos, __LINE__, ';');
             return binary_operation_node(ND_DO, loop_body, cond_expression);
+        case TK_FOR:
+            *pos = *pos + 1;
+            expect_token(tokens, pos, __LINE__, '(');
+            initializer = parse_statement(tokens, pos, current_scope_node);
+            cond_expression = parse_statement(tokens, pos, current_scope_node);
+            // Need to handle the case of empty expressions
+            if(get_token(tokens, pos)->ty == ')') {
+                iteration = no_op();
+                *pos = *pos + 1;
+            } else {
+                iteration = parse_expression(tokens, pos);
+                expect_token(tokens, pos, __LINE__, ')');
+            }
+            loop_body = parse_statement(tokens, pos, current_scope_node);
+            return quaternary_operation_node(ND_FOR, initializer, cond_expression, iteration, loop_body);
         // Otherwise, treat it as an expression separated by semicolons
         default: ;
             Node *expression = parse_expression(tokens, pos);

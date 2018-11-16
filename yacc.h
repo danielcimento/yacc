@@ -86,6 +86,7 @@ enum {
     ND_DO,
     ND_BREAK,
     ND_CONTINUE,
+    ND_FOR,
 };
 
 typedef struct Node {
@@ -96,6 +97,7 @@ typedef struct Node {
     struct Node *left;      // Left child. First arg in binary/ternary operations
     struct Node *middle;    // Middle child. First arg in unary operations. Second arg in ternary operations
     struct Node *right;     // Right child. Second arg in binary operations. Third arg in ternary operations
+    struct Node *extra;     // Used only for for-loops
     Vector *statements;     // Used for scope nodes
     struct Node *parent;    // Used for scope node navigation
     bool descend;
