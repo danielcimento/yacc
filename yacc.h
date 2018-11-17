@@ -52,7 +52,11 @@ enum {
     TK_FOR,
     TK_DO,
     TK_BREAK,
-    TK_CONTINUE
+    TK_CONTINUE,
+    TK_LEFT_SHIFT,
+    TK_RIGHT_SHIFT,
+    TK_LAND,
+    TK_LOR,
 };
 
 typedef struct {
@@ -87,6 +91,10 @@ enum {
     ND_BREAK,
     ND_CONTINUE,
     ND_FOR,
+    ND_LEFT_SHIFT,
+    ND_RIGHT_SHIFT,
+    ND_LAND,
+    ND_LOR,
 };
 
 typedef struct Node {

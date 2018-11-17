@@ -129,21 +129,21 @@ void gen_unary(Node *statement_tree, Scope **local_scope) {
             // Load the address into rax
             printf("\tpop rax\n");
             // Then, get the value inside rax and increment it 
-            printf("\tmov rdi, [rax]\n");
-            printf("\tinc rdi\n");
+            printf("\tmov rbx, [rax]\n");
+            printf("\tinc rbx\n");
             // Store it back into rax's address and put the new value on the stack
-            printf("\tmov [rax], rdi\n");
-            printf("\tpush rdi\n");
+            printf("\tmov [rax], rbx\n");
+            printf("\tpush rbx\n");
             break;
         case ND_PRE_DECREMENT:
             gen_lval(statement_tree->middle, local_scope);
             printf("\tpop rax\n");
             // Then, get the value inside rax and decrement it 
-            printf("\tmov rdi, [rax]\n");
-            printf("\tdec rdi\n");
+            printf("\tmov rbx, [rax]\n");
+            printf("\tdec rbx\n");
             // Store it back into rax's address and put the new value on the stack
-            printf("\tmov [rax], rdi\n");
-            printf("\tpush rdi\n");
+            printf("\tmov [rax], rbx\n");
+            printf("\tpush rbx\n");
             break;
         case ND_POST_DECREMENT:
             gen_lval(statement_tree->middle, local_scope);
@@ -151,10 +151,10 @@ void gen_unary(Node *statement_tree, Scope **local_scope) {
             printf("\tpop rax\n");
             printf("\tpush [rax]\n");
             // Load the value in rax
-            printf("\tmov rdi, [rax]\n");
+            printf("\tmov rbx, [rax]\n");
             // Decrement the value and store it in [rax] (value on stack is unchanged)
-            printf("\tdec rdi\n");
-            printf("\tmov [rax], rdi\n");
+            printf("\tdec rbx\n");
+            printf("\tmov [rax], rbx\n");
             break;
         case ND_POST_INCREMENT:
             gen_lval(statement_tree->middle, local_scope);
@@ -162,10 +162,10 @@ void gen_unary(Node *statement_tree, Scope **local_scope) {
             printf("\tpop rax\n");
             printf("\tpush [rax]\n");
             // Load the value in rax
-            printf("\tmov rdi, [rax]\n");
+            printf("\tmov rbx, [rax]\n");
             // Increment the value and store it in [rax] (value on stack is unchanged)
-            printf("\tinc rdi\n");
-            printf("\tmov [rax], rdi\n");
+            printf("\tinc rbx\n");
+            printf("\tmov [rax], rbx\n");
             break;
         default:
             fprintf(stderr, "Unknown unary operation: %d\n", statement_tree->ty);
@@ -182,11 +182,11 @@ void gen_binary(Node *statement_tree, Scope **local_scope) {
             gen_lval(statement_tree->left, local_scope);
             // Generate the value that we want to put into this lval
             gen(statement_tree->right, local_scope);
-            printf("\tpop rdi\n");
+            printf("\tpop rbx\n");
             printf("\tpop rax\n");
-            printf("\tmov [rax], rdi\n");
+            printf("\tmov [rax], rbx\n");
             // By storing our value back on the stack we can chain assignments
-            printf("\tpush rdi\n");
+            printf("\tpush rbx\n");
             return;
         case ND_WHILE:
             current_label = LABELS_GENERATED++;
@@ -229,62 +229,100 @@ void gen_binary(Node *statement_tree, Scope **local_scope) {
             printf("\tjnz dwb_%d\n", current_label);
             printf("dwe_%d:\n", current_label);
             return;
+        // These operators need to short circuit, so they get special treatment.
+        case ND_LAND:
+            current_label = LABELS_GENERATED++;
+            gen(statement_tree->left, local_scope);
+            printf("\tpop rax\n");
+            printf("\tpush rax\n");
+            printf("\tcmp rax, rax\n");
+            printf("\tjz land_e_%d\n", current_label);
+            gen(statement_tree->right, local_scope);
+            printf("land_e_%d:\n", current_label);
+            return;
+        case ND_LOR:
+            current_label = LABELS_GENERATED++;
+            gen(statement_tree->left, local_scope);
+            printf("\tpop rax\n");
+            printf("\tpush rax\n");
+            printf("\tcmp rax, rax\n");
+            printf("\tjnz lor_e_%d\n", current_label);
+            gen(statement_tree->right, local_scope);
+            printf("lor_e_%d:\n", current_label);
+            return;
         default:
             break;
     }
 
     gen(statement_tree->left, local_scope);
     gen(statement_tree->right, local_scope);
-    printf("\tpop rdi\n");
+    printf("\tpop rbx\n");
     printf("\tpop rax\n");
     switch(statement_tree->ty) {
         case '*':
-            printf("\tmul rdi\n");
+            printf("\tmul rbx\n");
             break;
         case '/':
             printf("\tmov rdx, 0\n");
-            printf("\tdiv rdi\n");
+            printf("\tdiv rbx\n");
             break;
         case '%':
             printf("\tmov rdx, 0\n");
-            printf("\tdiv rdi\n");
+            printf("\tdiv rbx\n");
             printf("\tmovzb rax, dl\n");
             break;
         case '+':
-            printf("\tadd rax, rdi\n");
+            printf("\tadd rax, rbx\n");
             break;
         case '-':
-            printf("\tsub rax, rdi\n");
+            printf("\tsub rax, rbx\n");
             break;
         case ND_EQUAL:
-            printf("\tcmp rdi, rax\n");
+            printf("\tcmp rbx, rax\n");
             printf("\tsete al\n");
             printf("\tmovzb rax, al\n");
             break;
         case ND_NEQUAL:
-            printf("\tcmp rdi, rax\n");
+            printf("\tcmp rbx, rax\n");
             printf("\tsetne al\n");
             printf("\tmovzb rax, al\n");
             break;
         case ND_GEQUAL:
-            printf("\tcmp rax, rdi\n");
+            printf("\tcmp rax, rbx\n");
             printf("\tsetge al\n");
             printf("\tmovzb rax, al\n");
             break;
         case ND_LEQUAL:
-            printf("\tcmp rax, rdi\n");
+            printf("\tcmp rax, rbx\n");
             printf("\tsetle al\n");
             printf("\tmovzb rax, al\n");
             break;
         case '>':
-            printf("\tcmp rax, rdi\n");
+            printf("\tcmp rax, rbx\n");
             printf("\tsetg al\n");
             printf("\tmovzb rax, al\n");
             break;
         case '<':
-            printf("\tcmp rax, rdi\n");
+            printf("\tcmp rax, rbx\n");
             printf("\tsetl al\n");
             printf("\tmovzb rax, al\n");
+            break;
+        case ND_LEFT_SHIFT:
+            printf("\tmovzb rcx, bl\n");
+            printf("\tshl rax, cl\n");
+            break;
+        case ND_RIGHT_SHIFT:
+            printf("\tmovzb rcx, bl\n");
+            printf("\tshr rax, cl\n");
+            break;
+        case '^':
+            printf("\txor rax, rbx\n");
+            break;
+        case '|':
+            printf("\tor rax, rbx\n");
+            break;
+        case '&':
+            printf("\tand rax, rbx\n");
             break;
         default:
             fprintf(stderr, "Unknown binary operation: %d\n", statement_tree->ty);

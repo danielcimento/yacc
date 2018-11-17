@@ -353,6 +353,12 @@ Node *precedence_4(Vector *tokens, int *pos) {
 
     Token *current_token = get_token(tokens, pos);
     switch (current_token->ty) {
+        case TK_RIGHT_SHIFT:
+            *pos = *pos + 1;
+            return binary_operation_node(ND_RIGHT_SHIFT, lhs, precedence_4(tokens, pos));
+        case TK_LEFT_SHIFT:
+            *pos = *pos + 1;
+            return binary_operation_node(ND_LEFT_SHIFT, lhs, precedence_4(tokens, pos));
         default:
             return lhs;
     }
@@ -405,6 +411,9 @@ Node *precedence_7(Vector *tokens, int *pos) {
 
     Token *current_token = get_token(tokens, pos);
     switch (current_token->ty) {
+        case '&':
+            *pos = *pos + 1;
+            return binary_operation_node('&', lhs, precedence_7(tokens, pos));
         default:
             return lhs;
     }
@@ -417,6 +426,9 @@ Node *precedence_8(Vector *tokens, int *pos) {
 
     Token *current_token = get_token(tokens, pos);
     switch (current_token->ty) {
+        case '^':
+            *pos = *pos + 1;
+            return binary_operation_node('^', lhs, precedence_8(tokens, pos));
         default:
             return lhs;
     }
@@ -429,6 +441,9 @@ Node *precedence_9(Vector *tokens, int *pos) {
 
     Token *current_token = get_token(tokens, pos);
     switch (current_token->ty) {
+        case '|':
+            *pos = *pos + 1;
+            return binary_operation_node('|', lhs, precedence_9(tokens, pos));
         default:
             return lhs;
     }
@@ -441,6 +456,9 @@ Node *precedence_10(Vector *tokens, int *pos) {
 
     Token *current_token = get_token(tokens, pos);
     switch (current_token->ty) {
+        case TK_LAND:
+            *pos = *pos + 1;
+            return binary_operation_node(ND_LAND, lhs, precedence_10(tokens, pos));
         default:
             return lhs;
     }
@@ -453,6 +471,9 @@ Node *precedence_11(Vector *tokens, int *pos) {
 
     Token *current_token = get_token(tokens, pos);
     switch (current_token->ty) {
+        case TK_LOR:
+            *pos = *pos + 1;
+            return binary_operation_node(ND_LAND, lhs, precedence_11(tokens, pos));
         default:
             return lhs;
     }

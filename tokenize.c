@@ -129,11 +129,17 @@ Vector *tokenize(FILE *stream) {
                     vec_push(tokens, new_token(TK_EQUAL, 0, NULL));
                     fgetc(stream);
                     continue;
+                } else {
+                    vec_push(tokens, new_token(c, 0, NULL));
+                    continue;
                 }
             case '!':
                 if(fpeek(stream) == '=') {
                     vec_push(tokens, new_token(TK_NEQUAL, 0, NULL));
                     fgetc(stream);
+                    continue;
+                } else {
+                    vec_push(tokens, new_token(c, 0, NULL));
                     continue;
                 }
             case '>':
@@ -141,11 +147,25 @@ Vector *tokenize(FILE *stream) {
                     vec_push(tokens, new_token(TK_GEQUAL, 0, NULL));
                     fgetc(stream);
                     continue;
+                } else if(fpeek(stream) == '>') {
+                    vec_push(tokens, new_token(TK_RIGHT_SHIFT, 0, NULL));
+                    fgetc(stream);
+                    continue;
+                } else {
+                    vec_push(tokens, new_token(c, 0, NULL));
+                    continue;
                 }
             case '<':
                 if(fpeek(stream) == '=') {
                     vec_push(tokens, new_token(TK_LEQUAL, 0, NULL));
                     fgetc(stream);
+                    continue;
+                } else if(fpeek(stream) == '<') {
+                    vec_push(tokens, new_token(TK_LEFT_SHIFT, 0, NULL));
+                    fgetc(stream);
+                    continue;
+                } else {
+                    vec_push(tokens, new_token(c, 0, NULL));
                     continue;
                 }
             case '-':
@@ -153,11 +173,17 @@ Vector *tokenize(FILE *stream) {
                     vec_push(tokens, new_token(TK_DECREMENT, 0, NULL));
                     fgetc(stream);
                     continue;
+                } else {
+                    vec_push(tokens, new_token(c, 0, NULL));
+                    continue;
                 }
             case '+':
                 if(fpeek(stream) == '+') {
                     vec_push(tokens, new_token(TK_INCREMENT, 0, NULL));
                     fgetc(stream);
+                    continue;
+                } else {
+                    vec_push(tokens, new_token(c, 0, NULL));
                     continue;
                 }
             case '/':
@@ -168,6 +194,27 @@ Vector *tokenize(FILE *stream) {
                 } else if (fpeek(stream) == '*') {
                     comment_state = BLOCK_COMMENT;
                     fgetc(stream);
+                    continue;
+                } else {
+                    vec_push(tokens, new_token(c, 0, NULL));
+                    continue;
+                }
+            case '&':
+                if(fpeek(stream) == '&') {
+                    vec_push(tokens, new_token(TK_LAND, 0, NULL));
+                    fgetc(stream);
+                    continue;
+                } else {
+                    vec_push(tokens, new_token(c, 0, NULL));
+                    continue;
+                }
+            case '|':
+                if(fpeek(stream) == '|') {
+                    vec_push(tokens, new_token(TK_LOR, 0, NULL));
+                    fgetc(stream);
+                    continue;
+                } else {
+                    vec_push(tokens, new_token(c, 0, NULL));
                     continue;
                 }
             case '*':
@@ -180,6 +227,7 @@ Vector *tokenize(FILE *stream) {
             case '%':
             case ':':
             case '?':
+            case '^':
                 vec_push(tokens, new_token(c, 0, NULL));
                 continue;
             default:

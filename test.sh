@@ -144,4 +144,14 @@ try 13 "a = 3; for(i = 0; i < 10; i++) { a++; } a;"
 try 13 "a = 3; i = 0; for(; i < 10; i++) a++; a;"
 try 13 "a = 3; i = 0; for(;;) { i++; a++; if(i >= 10) break; } a;"
 
+# Case 20: Bitwise operators
+try 8 "a = 2; a << 2;"
+try 2 "a = 8; a >> 2;"
+try 48 "a = 0b110101; b = 0b111000; a & b;"
+try 238 "a = 0b10101010; b = 0b11001100; a | b;"
+try 90 "a = 0b11110000; b = 0b10101010; a ^ b;"
+# Testing the short circuiting
+try 5 "a = 2; b = 3; c = 0; if (a > b && (b / c) > 3) a = 3; else a = 5; a;"
+try 5 "a = 2; b = 3; c = 0; if (b > a || (b / c) > 3) a = 5; else a = 3; a;"
+
 echo "OK"
