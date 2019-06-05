@@ -10,7 +10,14 @@ Node *unexpected_token(Token token, char *hint, int line_num, int pos) {
         fprintf(stderr, "Hint: %s\n", hint);
     }
     exit(PARSE_ERROR);
-    return NULL;
+}
+
+Node *parse_error(Node *node, char *hint, int line_num, int pos) {
+    fprintf(stderr, "[Line %d] Error occurred while parsing AST node of type %i (Pos: %i)\n", line_num, node->ty, pos);
+    if(hint != NULL) {
+        fprintf(stderr, "Hint: %s\n", hint);
+    }
+    exit(PARSE_ERROR);
 }
 
 Node *quaternary_operation_node(int op, Node *left, Node *middle, Node *right, Node *extra) {
@@ -160,7 +167,7 @@ Node *parse_statement(Vector *tokens, int *pos, Node **current_scope_node) {
 
     switch(current_token->ty) {
         // A statement might be opening new scope
-        Node *cond_expression, *loop_body, *true_condition, *false_condition, *initializer, *iteration;
+        Node *cond_expression, *loop_body, *true_condition, *false_condition, *initializer, *iteration, *label;
         case '{':
             *pos = *pos + 1;
             return parse_scope(tokens, pos, current_scope_node);
@@ -221,6 +228,16 @@ Node *parse_statement(Vector *tokens, int *pos, Node **current_scope_node) {
             loop_body = parse_statement(tokens, pos, current_scope_node);
             return quaternary_operation_node(ND_FOR, initializer, cond_expression, iteration, loop_body);
         // Otherwise, treat it as an expression separated by semicolons
+        case TK_GOTO:
+            label = parse_expression(tokens, pos);
+            if(label->ty != TK_IDENT) {
+                return parse_error(label, "GOTO statements must be followed by a single identifier", __LINE__, *pos);
+            }
+            expect_token(tokens, pos, __LINE__, ';');
+            return unary_operation_node(ND_GOTO, label);
+        case TK_LABEL:
+            label = new_identifier_node(current_token->name);
+            return unary_operation_node(ND_LABEL, label);
         default: ;
             Node *expression = parse_expression(tokens, pos);
             next_token = get_token(tokens, pos);

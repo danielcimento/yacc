@@ -18,6 +18,8 @@ bool places_on_stack(int ty) {
         case ND_BREAK:
         case ND_CONTINUE:
         case ND_NOOP:
+        case ND_LABEL:
+        case ND_GOTO:
             return false;
         default:
             return true;
@@ -27,6 +29,31 @@ bool places_on_stack(int ty) {
 void scope_epilogue() {
     printf("\tmov rsp, rbp\n");
     printf("\tpop rbp\n");
+}
+
+// Returns how many times we need to unwind the stack before we can jump to a certain label
+// If the label is not reachable, returns -1
+// A label is reachable iff it is in a scope that is a direct superset of the starting scope
+int scopes_to_clear_on_jump(Node *starting_node, char *labelName, int acc) {
+    if(starting_node == NULL) {
+        return -1;
+    }
+
+    //If the current node is a scope, check all the statements within that scope to see if the label is in it.
+    if(starting_node->statements != NULL) {
+        for(int i = 0; i < starting_node->statements->len; i++) {
+            Node *current_node = (Node *)starting_node->statements->data[i];
+            if(current_node->ty == ND_LABEL && strcmp(current_node->name, labelName) == 0) {
+                return acc;
+            }
+        }
+    } else {
+        // If the current node isn't a scope (though I believe it always should be) then we don't need to mark the unwind.
+        return scopes_to_clear_on_jump(starting_node->parent, labelName, acc);
+    }
+
+    // Otherwise keep checking above.
+    return scopes_to_clear_on_jump(starting_node->parent, labelName, acc+1);
 }
 
 // Generate the code to put an lval's address on the stack.
@@ -97,6 +124,8 @@ void gen_scope(Node *node, Scope **local_scope) {
 }
 
 void gen_unary(Node *statement_tree, Scope **local_scope) {
+    int scopes_to_unwind;
+
     switch(statement_tree->ty) {
         // Unary negation
         case ND_UNARY_NEG:
@@ -166,6 +195,20 @@ void gen_unary(Node *statement_tree, Scope **local_scope) {
             // Increment the value and store it in [rax] (value on stack is unchanged)
             printf("\tinc rbx\n");
             printf("\tmov [rax], rbx\n");
+            break;
+        case ND_GOTO:
+            scopes_to_unwind = scopes_to_clear_on_jump(statement_tree, statement_tree->middle->name, 0);
+            if(scopes_to_unwind == -1) {
+                fprintf(stderr, "Could not jump to label %s either because it could not be found or required entering a non-parent scope!\n", statement_tree->middle->name);
+                exit(CODEGEN_ERROR);
+            }
+            while(scopes_to_unwind-- > 0) {
+                scope_epilogue();
+            }
+            printf("\tjmp %s\n", statement_tree->middle->name);
+            break;
+        case ND_LABEL:
+            printf("%s:", statement_tree->middle->name);
             break;
         default:
             fprintf(stderr, "Unknown unary operation: %d\n", statement_tree->ty);

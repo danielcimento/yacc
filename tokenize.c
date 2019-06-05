@@ -29,6 +29,7 @@ Map *get_reserved_words() {
     map_put(reserved_word_map, "for", (void *)(long)TK_FOR);
     map_put(reserved_word_map, "break", (void *)(long)TK_BREAK);
     map_put(reserved_word_map, "continue", (void *)(long)TK_CONTINUE);
+    map_put(reserved_word_map, "goto", (void *)(long)TK_GOTO);
 
     return reserved_word_map;
 }
@@ -39,10 +40,16 @@ enum {
     BLOCK_COMMENT = 2
 };
 
+enum {
+    START_OF_LINE = 0,
+    MID_LINE = 1
+};
+
 // Divides the string `p` into tokens and stores them in a token stream
 Vector *tokenize(FILE *stream) {
     int position = 0;
     int comment_state = NO_COMMENT;
+    int line_state = START_OF_LINE;
     char c;                             // currently read character
     Vector *tokens = new_vector();
     Map *reserved_word_map = get_reserved_words();
@@ -111,7 +118,15 @@ Vector *tokenize(FILE *stream) {
             } while(is_identifier_character(c = fgetc(stream)));
             // Close string and put back the character that isn't part of our string
             identifier_name[i] = 0;
+
+            // Replace the character back in the stream unless this was a colon (indicates a label)
+            if(c == ':' && line_state == START_OF_LINE) {
+                vec_push(tokens, new_token(TK_LABEL, 0, identifier_name));
+                line_state = MID_LINE;
+                continue;
+            }
             ungetc(c, stream);
+
 
             // Look up any potential reserved word this maps to, and if it doesn't set it as an identifier
             int word_code = (long)map_get(reserved_word_map, identifier_name);
@@ -217,12 +232,13 @@ Vector *tokenize(FILE *stream) {
                     vec_push(tokens, new_token(c, 0, NULL));
                     continue;
                 }
+            case ';':
+                line_state = START_OF_LINE;
             case '*':
             case ')':
             case '(':
             case '}':
             case '{':
-            case ';':
             case '~':
             case '%':
             case ':':

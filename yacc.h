@@ -57,6 +57,8 @@ enum {
     TK_RIGHT_SHIFT,
     TK_LAND,
     TK_LOR,
+    TK_GOTO,
+    TK_LABEL,
 };
 
 typedef struct {
@@ -95,13 +97,15 @@ enum {
     ND_RIGHT_SHIFT,
     ND_LAND,
     ND_LOR,
+    ND_GOTO,
+    ND_LABEL,
 };
 
 typedef struct Node {
     int ty;                 // Node type
     int arity;
     int val;                // Integer value if node is of type ND_NUM
-    char *name;             // Name of the identifier if type is ND_IDENT
+    char *name;             // Name of the identifier if type is ND_IDENT or ND_LABEL
     struct Node *left;      // Left child. First arg in binary/ternary operations
     struct Node *middle;    // Middle child. First arg in unary operations. Second arg in ternary operations
     struct Node *right;     // Right child. Second arg in binary operations. Third arg in ternary operations
