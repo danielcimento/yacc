@@ -31,29 +31,20 @@ void scope_epilogue() {
     printf("\tpop rbp\n");
 }
 
-// Returns how many times we need to unwind the stack before we can jump to a certain label
-// If the label is not reachable, returns -1
-// A label is reachable iff it is in a scope that is a direct superset of the starting scope
-int scopes_to_clear_on_jump(Node *starting_node, char *labelName, int acc) {
-    if(starting_node == NULL) {
-        return -1;
-    }
-
-    //If the current node is a scope, check all the statements within that scope to see if the label is in it.
-    if(starting_node->statements != NULL) {
-        for(int i = 0; i < starting_node->statements->len; i++) {
-            Node *current_node = (Node *)starting_node->statements->data[i];
-            if(current_node->ty == ND_LABEL && strcmp(current_node->name, labelName) == 0) {
-                return acc;
-            }
+// // Returns how many times we need to unwind the stack before we can jump to a certain label
+// // If the label is not reachable, returns -1
+// // A label is reachable iff it is in a scope that is a direct superset of the starting scope
+bool scopes_to_clear_on_jump(Scope *starting_scope, char *label_name, int acc) {
+    if(starting_scope == NULL) return -1;
+    
+    Vector *labels = starting_scope->labels_declared;
+    for(int i = 0; i < labels->len; i++) {
+        if(strcmp(labels->data[i], label_name) == 0) {
+            return acc;
         }
-    } else {
-        // If the current node isn't a scope (though I believe it always should be) then we don't need to mark the unwind.
-        return scopes_to_clear_on_jump(starting_node->parent, labelName, acc);
     }
 
-    // Otherwise keep checking above.
-    return scopes_to_clear_on_jump(starting_node->parent, labelName, acc+1);
+    return scopes_to_clear_on_jump(starting_scope->parent_scope, label_name, acc+1);
 }
 
 // Generate the code to put an lval's address on the stack.
@@ -197,7 +188,7 @@ void gen_unary(Node *statement_tree, Scope **local_scope) {
             printf("\tmov [rax], rbx\n");
             break;
         case ND_GOTO:
-            scopes_to_unwind = scopes_to_clear_on_jump(statement_tree, statement_tree->middle->name, 0);
+            scopes_to_unwind = scopes_to_clear_on_jump(*local_scope, statement_tree->middle->name, 0);
             if(scopes_to_unwind == -1) {
                 fprintf(stderr, "Could not jump to label %s either because it could not be found or required entering a non-parent scope!\n", statement_tree->middle->name);
                 exit(CODEGEN_ERROR);

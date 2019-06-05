@@ -122,6 +122,7 @@ Node *parse_code(Vector *tokens);
 typedef struct Scope {
     Vector *sub_scopes; 
     Map *variables_declared;
+    Vector *labels_declared;
     struct Scope *parent_scope;
     int scopes_traversed;
     char *break_label;      // Used to keep track of which label a break/continue statement should jump to

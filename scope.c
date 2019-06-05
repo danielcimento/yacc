@@ -6,6 +6,7 @@ Scope *new_scope(Scope *parent_scope) {
     Scope *scope = malloc(sizeof(Scope));
     scope->sub_scopes = new_vector();
     scope->variables_declared = new_map((void *)(long)-1);
+    scope->labels_declared = new_vector();
     scope->parent_scope = parent_scope;
     scope->scopes_traversed = 0;
 
@@ -34,6 +35,30 @@ void declare_variable(Scope *target_scope, char *variable_name) {
     } else {
         // TODO: Eventually add support for types larger than 8 bytes
         map_put(target_scope->variables_declared, variable_name, (void *)(long)((target_scope->variables_declared->keys->len + 1) * 8));
+    }
+}
+
+// Check if the label in question has already been declared in this scope or a scope above it
+bool label_already_declared(Scope *target_scope, char *variable_name) {
+    for(int i = 0; i < target_scope->labels_declared->len; i++) {
+        if(strcmp(target_scope->labels_declared->data[i], variable_name) == 0) {
+            return true;
+        }
+    }
+
+    if(target_scope->parent_scope == NULL) {
+        return false;
+    } else {
+        return label_already_declared(target_scope->parent_scope, variable_name);
+    }
+}
+
+void declare_label(Scope *target_scope, char *label_name) {
+    if(label_already_declared(target_scope, label_name)) {
+        fprintf(stderr, "Error: Multiple uses of label '%s'\n", label_name);
+        exit(SCOPE_ERROR);
+    } else {
+        vec_push(target_scope->labels_declared, label_name);
     }
 }
 
@@ -77,6 +102,8 @@ Scope *construct_scope_from_token_stream(Vector *tokens) {
         // When we find the identifier, try to create it in the current scope.
         } else if(tk.ty == TK_IDENT) {
             declare_variable(current_scope, tk.name);
+        } else if(tk.ty == TK_LABEL) {
+            declare_label(current_scope, tk.name);
         }
     }
 

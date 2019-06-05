@@ -30,8 +30,8 @@ try_file() {
     fi
 }
 
-# Case 19: Breaks & Continues
-try_file 25 "test_programs/breaks.yacc"
+
+
 
 # Case 1: Numbers
 try 0 '0;'
@@ -144,7 +144,10 @@ try 13 "a = 3; for(i = 0; i < 10; i++) { a++; } a;"
 try 13 "a = 3; i = 0; for(; i < 10; i++) a++; a;"
 try 13 "a = 3; i = 0; for(;;) { i++; a++; if(i >= 10) break; } a;"
 
-# Case 20: Bitwise operators
+# Case 20: Breaks & Continues
+try_file 25 "test_programs/breaks.yacc"
+
+# Case 21: Bitwise operators
 try 8 "a = 2; a << 2;"
 try 2 "a = 8; a >> 2;"
 try 48 "a = 0b110101; b = 0b111000; a & b;"
@@ -153,5 +156,9 @@ try 90 "a = 0b11110000; b = 0b10101010; a ^ b;"
 # Testing the short circuiting
 try 5 "a = 2; b = 3; c = 0; if (a > b && (b / c) > 3) a = 3; else a = 5; a;"
 try 5 "a = 2; b = 3; c = 0; if (b > a || (b / c) > 3) a = 5; else a = 3; a;"
+
+
+# Case 22: GOTOs and labels
+try_file 7 "test_programs/labels_and_goto.yacc"
 
 echo "OK"

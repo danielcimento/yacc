@@ -229,6 +229,7 @@ Node *parse_statement(Vector *tokens, int *pos, Node **current_scope_node) {
             return quaternary_operation_node(ND_FOR, initializer, cond_expression, iteration, loop_body);
         // Otherwise, treat it as an expression separated by semicolons
         case TK_GOTO:
+            *pos = *pos + 1;
             label = parse_expression(tokens, pos);
             if(label->ty != TK_IDENT) {
                 return parse_error(label, "GOTO statements must be followed by a single identifier", __LINE__, *pos);
@@ -237,6 +238,7 @@ Node *parse_statement(Vector *tokens, int *pos, Node **current_scope_node) {
             return unary_operation_node(ND_GOTO, label);
         case TK_LABEL:
             label = new_identifier_node(current_token->name);
+            *pos = *pos + 1;
             return unary_operation_node(ND_LABEL, label);
         default: ;
             Node *expression = parse_expression(tokens, pos);
